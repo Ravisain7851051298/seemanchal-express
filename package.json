@@ -1,0 +1,14 @@
+{
+  "name": "seemanchal-express",
+  "version": "1.0.0",
+  "description": "Seemanchal Express - News Portal & Committee Management System",
+  "scripts": {
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build"
+  },
+  "keywords": ["news", "seemanchal-express", "nextjs", "express", "mongodb"],
+  "author": "Seemanchal Express",
+  "license": "ISC"
+}
+
