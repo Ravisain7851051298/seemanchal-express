@@ -4,9 +4,22 @@ const initialState = {
   stats: {
     totalMembers: 0,
     totalReporters: 0,
+    activeReporters: 0,
+    suspendedReporters: 0,
     pendingMembers: 0,
     pendingReporters: 0,
     totalPendingApplications: 0,
+    activeMembers: 0,
+    expiredMemberships: 0,
+    suspendedMembers: 0,
+    pendingComplaints: 0,
+    complaintsUnderReview: 0,
+    resolvedComplaints: 0,
+    rejectedComplaints: 0,
+    totalComplaints: 0,
+    publishedLegalDocs: 0,
+    draftLegalDocs: 0,
+    totalLegalDocs: 0,
     totalNewsPublished: 0,
     pendingNewsReview: 0,
     totalViews: 0,
@@ -17,7 +30,12 @@ const initialState = {
   categories: [],
   newsList: [],
   inquiries: [],
-  activeAdminTab: 'dashboard',
+  legalDocs: [],
+  reportersList: [],
+  membersList: [],
+  complaintsList: [],
+  activityLogs: [],
+  activeAdminTab: 'overview',
   loading: false,
   actionLoading: false,
   error: null,
@@ -81,6 +99,26 @@ const adminSlice = createSlice({
       state.inquiries = action.payload;
       state.loading = false;
     },
+    setLegalDocs: (state, action) => {
+      state.legalDocs = action.payload;
+      state.loading = false;
+    },
+    setReportersList: (state, action) => {
+      state.reportersList = action.payload;
+      state.loading = false;
+    },
+    setMembersList: (state, action) => {
+      state.membersList = action.payload;
+      state.loading = false;
+    },
+    setComplaintsList: (state, action) => {
+      state.complaintsList = action.payload;
+      state.loading = false;
+    },
+    setActivityLogs: (state, action) => {
+      state.activityLogs = action.payload;
+      state.loading = false;
+    },
     setActiveAdminTab: (state, action) => {
       state.activeAdminTab = action.payload;
     },
@@ -111,6 +149,11 @@ export const {
   removeNewsItem,
   setInquiries,
   removeInquiryItem,
+  setLegalDocs,
+  setReportersList,
+  setMembersList,
+  setComplaintsList,
+  setActivityLogs,
   setActiveAdminTab,
   setAdminLoading,
   setActionLoading,

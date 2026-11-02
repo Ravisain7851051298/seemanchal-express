@@ -55,15 +55,15 @@ function SearchContent() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8">
+    <div className="bg-slate-50 min-h-screen py-2 md:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-8">
         {/* Search Input Box */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 mb-8 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 p-2 sm:p-8 mb-2 md:mb-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <span className="p-1.5 rounded-lg bg-red-100 text-red-600">
               <Search className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-black text-slate-900">Search News & Verified Ground Reports</h1>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 line-clamp-1">Search News & Verified Ground Reports</h1>
           </div>
           <p className="text-xs text-slate-500 mb-5">
             Search across headlines, regional ground coverage, categories, authors, and keywords.
@@ -72,25 +72,39 @@ function SearchContent() {
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
             <div className="relative flex-grow">
               <input
-                type="text"
-                placeholder="Search by keywords, place, topic (e.g. Purnea, Kishanganj, Education, Flood)..."
+                type="search"
+                name="q"
+                autoComplete="off"
+                placeholder="Search by keywords, place, topic..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-4 pr-10 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white text-slate-900 transition-all"
+                className="[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden w-full pl-4 pr-14 py-3 text-sm bg-white border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-slate-900 transition-all shadow-sm"
               />
+
               {searchTerm && (
                 <button
                   type="button"
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-3 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                  className="absolute right-14 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 >
                   ✕
                 </button>
               )}
+
+              {/* Mobile Search Icon */}
+              <button
+                type="submit"
+                aria-label="Search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 sm:hidden w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition-all"
+              >
+                <Search className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Desktop Search Button */}
             <button
               type="submit"
-              className="px-7 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shrink-0"
+              className="hidden sm:flex px-7 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full text-sm font-bold items-center justify-center gap-2 transition-colors shadow-sm shrink-0"
             >
               <Search className="w-4 h-4" />
               <span>Search</span>
@@ -98,18 +112,19 @@ function SearchContent() {
           </form>
 
           {/* Quick topic tags */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Quick Topics:</span>
-            {quickTopics.map((topic, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleQuickTopicClick(topic)}
-                className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-lg transition-colors font-medium border border-slate-200"
-              >
-                #{topic}
-              </button>
-            ))}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-hide min-w-0">
+              {quickTopics.map((topic, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleQuickTopicClick(topic)}
+                  className="shrink-0 text-[11px] sm:text-xs px-2 py-1 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-full transition-colors font-medium border border-slate-200"
+                >
+                  #{topic}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -121,7 +136,7 @@ function SearchContent() {
             <p className="text-xs text-slate-400 mt-1">Checking headlines, location archives and reporter reports</p>
           </div>
         ) : hasSearched && results.length > 0 ? (
-          <div className="space-y-10">
+          <div className="space-y-5 md:space-y-10">
             <div>
               <div className="flex justify-between items-center mb-5 pb-2 border-b border-slate-200">
                 <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -240,7 +255,7 @@ function SearchContent() {
             )}
           </div>
         ) : hasSearched && results.length === 0 ? (
-          <div className="space-y-10">
+          <div className="space-y-5 md:space-y-10">
             <div className="bg-white rounded-2xl p-8 sm:p-12 text-center border border-slate-200">
               <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-3">
                 <Search className="w-6 h-6" />

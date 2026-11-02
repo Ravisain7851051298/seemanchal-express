@@ -176,6 +176,8 @@ export default function ApplyMemberPage() {
                   <input
                     type="text"
                     name="name"
+                    id="name"
+                    autoComplete="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
@@ -191,6 +193,8 @@ export default function ApplyMemberPage() {
                   <input
                     type="email"
                     name="email"
+                    id="email"
+                    autoComplete="email"
                     required
                     value={formData.email}
                     onChange={handleChange}
@@ -206,6 +210,8 @@ export default function ApplyMemberPage() {
                   <input
                     type="tel"
                     name="phone"
+                    id="phone"
+                    autoComplete="tel"
                     required
                     value={formData.phone}
                     onChange={handleChange}
@@ -221,6 +227,8 @@ export default function ApplyMemberPage() {
                   <input
                     type="password"
                     name="password"
+                    id="password"
+                    autoComplete="new-password"
                     required
                     value={formData.password}
                     onChange={handleChange}

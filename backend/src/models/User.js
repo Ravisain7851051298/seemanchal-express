@@ -114,6 +114,47 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Dedicated Reporter Management Status
+  reporterStatus: {
+    type: String,
+    enum: ['active', 'suspended', 'pending', 'rejected'],
+    default: 'pending',
+  },
+  // Dedicated Membership Management Status
+  membershipStatus: {
+    type: String,
+    enum: ['active', 'expired', 'suspended', 'pending', 'rejected'],
+    default: 'pending',
+  },
+  membershipStartDate: {
+    type: Date,
+  },
+  membershipExpiryDate: {
+    type: Date,
+  },
+  suspensionReason: {
+    type: String,
+    default: '',
+  },
+  suspensionDate: {
+    type: Date,
+  },
+  adminRemarks: {
+    type: String,
+    default: '',
+  },
+  statusHistory: [
+    {
+      oldStatus: { type: String, default: '' },
+      newStatus: { type: String, required: true },
+      statusType: { type: String, enum: ['general', 'reporter', 'membership'], default: 'general' },
+      reason: { type: String, default: '' },
+      remarks: { type: String, default: '' },
+      changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      changedByName: { type: String, default: 'Admin' },
+      changedAt: { type: Date, default: Date.now },
+    },
+  ],
   refreshToken: {
     type: String,
     default: '',

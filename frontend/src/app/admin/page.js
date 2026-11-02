@@ -42,6 +42,7 @@ import {
   Flame,
   Calendar,
   Sparkles,
+  History,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import {
@@ -67,6 +68,11 @@ import getMediaUrl from '../../lib/imageHelper';
 import MarkdownView from '../../components/common/MarkdownView';
 import DigitalIdCard from '../../components/documents/DigitalIdCard';
 import AppointmentLetter from '../../components/documents/AppointmentLetter';
+import LegalDocumentsSection from '../../components/admin/LegalDocumentsSection';
+import ReporterManagementSection from '../../components/admin/ReporterManagementSection';
+import MembershipManagementSection from '../../components/admin/MembershipManagementSection';
+import ComplaintsDeskSection from '../../components/admin/ComplaintsDeskSection';
+import AdminActivityLogsSection from '../../components/admin/AdminActivityLogsSection';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -819,7 +825,7 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('applications'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'applications'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -838,21 +844,87 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => {
-                dispatch(setActiveAdminTab('members'));
+                dispatch(setActiveAdminTab('reporters'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'members'
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'reporters'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Members & Team Page</span>
+                <Users className="w-4 h-4 text-amber-400" />
+                <span>Reporter Management</span>
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400">
-                {users.filter((u) => u.role !== 'admin').length}
+              {stats.suspendedReporters > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-red-950 text-red-400 border border-red-800">
+                  {stats.suspendedReporters} susp
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                dispatch(setActiveAdminTab('membership'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'membership'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Award className="w-4 h-4 text-blue-400" />
+                <span>Membership Control</span>
+              </span>
+              {stats.expiredMemberships > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-950 text-amber-400 border border-amber-800">
+                  {stats.expiredMemberships} exp
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                dispatch(setActiveAdminTab('complaints'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'complaints'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span>Grievances & Complaints</span>
+              </span>
+              {stats.pendingComplaints > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-600 text-white animate-pulse">
+                  {stats.pendingComplaints}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                dispatch(setActiveAdminTab('legal'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'legal'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <FileCheck className="w-4 h-4 text-purple-400" />
+                <span>Legal Documents</span>
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400">
+                {stats.totalLegalDocs || 15}
               </span>
             </button>
 
@@ -861,7 +933,7 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('news'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'news'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -878,10 +950,30 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => {
+                dispatch(setActiveAdminTab('members'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'members'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Users className="w-4 h-4" />
+                <span>Team & Public Directory</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400">
+                {users.filter((u) => u.role !== 'admin').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
                 dispatch(setActiveAdminTab('categories'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'categories'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -896,7 +988,7 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('positions'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'positions'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -911,7 +1003,7 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('inquiries'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'inquiries'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -928,10 +1020,25 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => {
+                dispatch(setActiveAdminTab('activity'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'activity'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <History className="w-4 h-4 text-sky-400" />
+              <span>Activity Audit Logs</span>
+            </button>
+
+            <button
+              onClick={() => {
                 dispatch(setActiveAdminTab('security'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeAdminTab === 'security'
                   ? 'bg-red-600 text-white shadow-md font-black'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -972,11 +1079,16 @@ export default function AdminDashboard() {
             </span>
             <h2 className="text-2xl font-black text-white">
               {activeAdminTab === 'applications' && 'Applicant Reviews & Credential Issuance'}
+              {activeAdminTab === 'reporters' && 'Press Reporter Management & Bureau Status'}
+              {activeAdminTab === 'membership' && 'Membership Control & Expiry Governance'}
+              {activeAdminTab === 'complaints' && 'Grievance Redressal & Editorial Complaints Desk'}
+              {activeAdminTab === 'legal' && 'Legal Documents & Guidelines Management'}
               {activeAdminTab === 'members' && 'Member Management & Public Team Directory'}
               {activeAdminTab === 'news' && 'Editorial Publishing & Reporter Moderation'}
               {activeAdminTab === 'categories' && 'News Categories & Hierarchy'}
               {activeAdminTab === 'positions' && 'Committee Structure & Sanctioned Positions'}
               {activeAdminTab === 'inquiries' && 'Public Messages & Whistleblower Tips'}
+              {activeAdminTab === 'activity' && 'Administrative Activity Audit Logs'}
               {activeAdminTab === 'security' && 'Admin Password & Security'}
             </h2>
           </div>
@@ -1004,44 +1116,104 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 6 Analytics Counters */}
+        {/* Real DB Analytics Counters */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-slate-400 block mb-1">Members</span>
-            <strong className="text-2xl font-black text-white">{stats.totalMembers}</strong>
-            <span className="text-[10px] text-emerald-400 font-bold block mt-1">Approved</span>
+          <div
+            onClick={() => dispatch(setActiveAdminTab('reporters'))}
+            className="bg-slate-900 border border-slate-800 hover:border-amber-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
+            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Reporters</span>
+            <strong className="text-xl sm:text-2xl font-black text-amber-400">
+              {stats.activeReporters ?? stats.totalReporters}
+            </strong>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              {stats.suspendedReporters > 0 ? (
+                <span className="text-red-400 font-bold">{stats.suspendedReporters} Suspended</span>
+              ) : (
+                'Active Bureau'
+              )}
+            </span>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-slate-400 block mb-1">Reporters</span>
-            <strong className="text-2xl font-black text-amber-400">{stats.totalReporters}</strong>
-            <span className="text-[10px] text-amber-400 font-bold block mt-1">Press Corps</span>
+          <div
+            onClick={() => dispatch(setActiveAdminTab('membership'))}
+            className="bg-slate-900 border border-slate-800 hover:border-blue-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
+            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Members</span>
+            <strong className="text-xl sm:text-2xl font-black text-white">
+              {stats.activeMembers ?? stats.totalMembers}
+            </strong>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              {stats.expiredMemberships > 0 ? (
+                <span className="text-amber-400 font-bold">{stats.expiredMemberships} Expired</span>
+              ) : (
+                'Active Terms'
+              )}
+            </span>
           </div>
 
-          <div className="bg-slate-900 border border-amber-900/60 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-amber-400 block mb-1">Pending Members</span>
-            <strong className="text-2xl font-black text-amber-300">{stats.pendingMembers}</strong>
-            <span className="text-[10px] text-slate-400 font-bold block mt-1">Needs Review</span>
+          <div
+            onClick={() => dispatch(setActiveAdminTab('complaints'))}
+            className="bg-slate-900 border border-slate-800 hover:border-red-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
+            <span className="text-[11px] font-bold text-red-400 block mb-0.5">Grievances</span>
+            <strong className="text-xl sm:text-2xl font-black text-red-400">
+              {stats.pendingComplaints ?? 0}
+            </strong>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              {stats.resolvedComplaints ? `${stats.resolvedComplaints} Resolved` : 'Pending Cases'}
+            </span>
           </div>
 
-          <div className="bg-slate-900 border border-amber-900/60 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-amber-400 block mb-1">Pending Reporters</span>
-            <strong className="text-2xl font-black text-amber-300">{stats.pendingReporters}</strong>
-            <span className="text-[10px] text-slate-400 font-bold block mt-1">Needs Review</span>
+          <div
+            onClick={() => dispatch(setActiveAdminTab('legal'))}
+            className="bg-slate-900 border border-slate-800 hover:border-purple-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
+            <span className="text-[11px] font-bold text-purple-400 block mb-0.5">Legal Policies</span>
+            <strong className="text-xl sm:text-2xl font-black text-purple-300">
+              {stats.publishedLegalDocs ?? 15}
+            </strong>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              {stats.draftLegalDocs ? `${stats.draftLegalDocs} Drafts` : 'Published Online'}
+            </span>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-slate-400 block mb-1">Published News</span>
-            <strong className="text-2xl font-black text-red-500">{stats.totalNewsPublished}</strong>
-            <span className="text-[10px] text-slate-400 font-bold block mt-1">Live Articles</span>
+          <div
+            onClick={() => dispatch(setActiveAdminTab('news'))}
+            className="bg-slate-900 border border-slate-800 hover:border-red-600 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
+            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Published News</span>
+            <strong className="text-xl sm:text-2xl font-black text-red-500">
+              {stats.totalNewsPublished}
+            </strong>
+            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+              {stats.pendingNewsReview ? `${stats.pendingNewsReview} In Review` : 'Live Articles'}
+            </span>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
-            <span className="text-[11px] font-bold text-slate-400 block mb-1">Readership</span>
-            <strong className="text-2xl font-black text-sky-400">{stats.totalViews}</strong>
-            <span className="text-[10px] text-sky-400 font-bold block mt-1">Total Reads</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center shadow-sm">
+            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Readership</span>
+            <strong className="text-xl sm:text-2xl font-black text-sky-400">
+              {stats.totalViews}
+            </strong>
+            <span className="text-[10px] text-sky-400 font-bold block mt-0.5">Total Reads</span>
           </div>
         </div>
+
+        {/* TAB: REPORTER MANAGEMENT SYSTEM */}
+        {activeAdminTab === 'reporters' && <ReporterManagementSection />}
+
+        {/* TAB: MEMBERSHIP CONTROL & EXPIRY */}
+        {activeAdminTab === 'membership' && <MembershipManagementSection />}
+
+        {/* TAB: COMPLAINTS & GRIEVANCE REDRESSAL DESK */}
+        {activeAdminTab === 'complaints' && <ComplaintsDeskSection />}
+
+        {/* TAB: CENTRALIZED LEGAL DOCUMENTS & POLICIES */}
+        {activeAdminTab === 'legal' && <LegalDocumentsSection />}
+
+        {/* TAB: ADMINISTRATIVE ACTIVITY AUDIT LOGS */}
+        {activeAdminTab === 'activity' && <AdminActivityLogsSection />}
 
         {/* TAB 1: APPLICATIONS WORKFLOW */}
         {activeAdminTab === 'applications' && (
@@ -1879,6 +2051,8 @@ export default function AdminDashboard() {
                 <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
                 <input
                   type="password"
+                  name="currentPassword"
+                  autoComplete="current-password"
                   required
                   value={passwords.currentPassword}
                   onChange={(e) =>
@@ -1892,6 +2066,8 @@ export default function AdminDashboard() {
                 <label className="block font-bold text-slate-300 mb-1">New Master Password *</label>
                 <input
                   type="password"
+                  name="newPassword"
+                  autoComplete="new-password"
                   required
                   value={passwords.newPassword}
                   onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
@@ -1904,6 +2080,8 @@ export default function AdminDashboard() {
                 <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
                 <input
                   type="password"
+                  name="confirmPassword"
+                  autoComplete="new-password"
                   required
                   value={passwords.confirmPassword}
                   onChange={(e) =>

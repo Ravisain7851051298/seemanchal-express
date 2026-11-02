@@ -176,18 +176,34 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-3 text-center sm:text-left">
-          <p>© {new Date().getFullYear()} Seemanchal Express. All Rights Reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link href="/about" className="hover:text-slate-400">
-              Editorial Guidelines
+        <div className="pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col lg:flex-row justify-between items-center gap-3 text-center lg:text-left">
+          <p>© {new Date().getFullYear()} Seemanchal Express. All Rights Reserved. Digital Media & Community Network.</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-slate-400">
+            <Link href="/legal" className="hover:text-white transition-colors text-amber-400 font-semibold">
+              Legal & Policies
             </Link>
             <span>•</span>
-            <Link href="/contact" className="hover:text-slate-400">
-              Grievance Redressal
+            <Link href="/legal/privacy-policy" className="hover:text-white transition-colors">
+              Privacy Policy
             </Link>
             <span>•</span>
-            <Link href="/verify" className="hover:text-slate-400">
+            <Link href="/legal/terms-and-conditions" className="hover:text-white transition-colors">
+              Terms & Conditions
+            </Link>
+            <span>•</span>
+            <Link href="/legal/editorial-policy" className="hover:text-white transition-colors">
+              Editorial Policy
+            </Link>
+            <span>•</span>
+            <Link href="/complaint" className="hover:text-white transition-colors text-red-400 font-medium">
+              Submit Grievance
+            </Link>
+            <span>•</span>
+            <Link href="/complaint/track" className="hover:text-white transition-colors text-blue-400 font-medium">
+              Track Grievance
+            </Link>
+            <span>•</span>
+            <Link href="/verify" className="hover:text-white transition-colors">
               ID Card Verification
             </Link>
           </div>

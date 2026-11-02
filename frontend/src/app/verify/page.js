@@ -34,6 +34,9 @@ export default function VerifySearchPage() {
             <div>
               <input
                 type="text"
+                name="cardId"
+                id="cardId"
+                autoComplete="off"
                 required
                 placeholder="e.g. SE-MEM-2026-0001 or SE-REP-2026-0001"
                 value={cardId}

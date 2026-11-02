@@ -26,6 +26,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [breakingNews, setBreakingNews] = useState([]);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Fetch breaking news
   useEffect(() => {
@@ -42,6 +44,51 @@ export default function Navbar() {
 
     fetchNavbarData();
   }, []);
+
+  // Smart auto-hide header on scroll (slides up on scroll down, slides down on scroll up)
+  useEffect(() => {
+    let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Always visible near top of page
+      if (currentScrollY <= 60) {
+        setIsVisible(true);
+        setIsScrolled(false);
+        lastScrollY = currentScrollY;
+        return;
+      }
+
+      setIsScrolled(true);
+
+      // Keep visible if mobile drawer/menu is open
+      if (mobileMenuOpen) {
+        setIsVisible(true);
+        lastScrollY = currentScrollY;
+        return;
+      }
+
+      // Delta threshold to ignore minor jitter
+      const delta = currentScrollY - lastScrollY;
+      if (Math.abs(delta) < 8) {
+        return;
+      }
+
+      if (delta > 0 && currentScrollY > 120) {
+        // Scrolling DOWN -> Hide header
+        setIsVisible(false);
+      } else if (delta < 0) {
+        // Scrolling UP -> Reveal header smoothly
+        setIsVisible(true);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [mobileMenuOpen]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -67,7 +114,10 @@ export default function Navbar() {
   }).format(new Date());
 
   return (
-    <header className="w-full bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
+    <header
+      className={`w-full bg-white border-b border-slate-200 sticky top-0 z-50 transition-transform duration-300 ease-in-out will-change-transform ${isVisible ? 'translate-y-0' : '-translate-y-full'
+        } ${isScrolled ? 'shadow-md' : 'shadow-sm'}`}
+    >
       {/* 1. Top Utility Info Bar */}
       <div className="bg-slate-900 text-slate-300 text-xs py-1.5 px-4 sm:px-8 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
@@ -83,7 +133,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <a
               href="tel:9871023184"
-              className="flex items-center gap-1 hover:text-white transition-colors"
+              className="hidden lg:flex items-center gap-1 hover:text-white transition-colors"
             >
               <Phone className="w-3 h-3 text-emerald-400" />
               <span>+91 9871023184</span>
@@ -121,7 +171,9 @@ export default function Navbar() {
           {/* Search Bar */}
           <form onSubmit={handleSearchSubmit} className="relative">
             <input
-              type="text"
+              type="search"
+              name="q"
+              autoComplete="off"
               placeholder="Search news & stories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -307,7 +359,7 @@ export default function Navbar() {
       <div className="bg-amber-400 border-b border-amber-500 text-slate-900 text-xs font-semibold flex items-center overflow-hidden">
         <div className="bg-red-600 text-white px-3 py-1.5 flex items-center gap-1.5 shrink-0 z-10 font-bold shadow-md uppercase tracking-wider">
           <Flame className="w-3.5 h-3.5 animate-pulse text-amber-300" />
-          <span>Breaking News</span>
+          <span className='hidden md:block'>Breaking News</span>
         </div>
         <div className="overflow-hidden whitespace-nowrap w-full py-1.5">
           <div className="inline-block animate-ticker">

@@ -56,6 +56,11 @@ const sendTokenResponse = async (user, statusCode, res, message = 'Success') => 
       phone: user.phone,
       role: user.role,
       status: user.status,
+      reporterStatus: user.reporterStatus || (user.status === 'approved' && user.role === 'reporter' ? 'active' : user.status),
+      membershipStatus: user.membershipStatus || (user.status === 'approved' && user.role === 'member' ? 'active' : user.status),
+      membershipStartDate: user.membershipStartDate,
+      membershipExpiryDate: user.membershipExpiryDate,
+      suspensionReason: user.suspensionReason,
       photo: user.photo,
       committeeLevel: user.committeeLevel,
       assignedDesignation: user.assignedDesignation,
@@ -305,6 +310,21 @@ router.post('/logout', async (req, res) => {
 router.get('/me', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Auto-check membership expiry
+    if (
+      user.role === 'member' &&
+      user.membershipExpiryDate &&
+      new Date(user.membershipExpiryDate) < new Date() &&
+      user.membershipStatus === 'active'
+    ) {
+      user.membershipStatus = 'expired';
+      await user.save();
+    }
+
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

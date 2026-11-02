@@ -21,6 +21,8 @@ const teamRoutes = require('./routes/teamRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const legalRoutes = require('./routes/legalRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
 
 const app = express();
 
@@ -62,6 +64,8 @@ app.use('/api/team', teamRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/legal', legalRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

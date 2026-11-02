@@ -156,6 +156,8 @@ export default function ContactPage() {
                     <input
                       type="text"
                       name="name"
+                      id="name"
+                      autoComplete="name"
                       required
                       value={formData.name}
                       onChange={handleChange}
@@ -170,6 +172,8 @@ export default function ContactPage() {
                     <input
                       type="email"
                       name="email"
+                      id="email"
+                      autoComplete="email"
                       required
                       value={formData.email}
                       onChange={handleChange}
@@ -187,6 +191,8 @@ export default function ContactPage() {
                     <input
                       type="tel"
                       name="phone"
+                      id="phone"
+                      autoComplete="tel"
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="10-digit mobile number"

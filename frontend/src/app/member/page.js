@@ -34,6 +34,7 @@ import getMediaUrl from '../../lib/imageHelper';
 import MarkdownView from '../../components/common/MarkdownView';
 import DigitalIdCard from '../../components/documents/DigitalIdCard';
 import AppointmentLetter from '../../components/documents/AppointmentLetter';
+import LegalAgreementAcceptanceModal from '../../components/legal/LegalAgreementAcceptanceModal';
 
 export default function MemberDashboard() {
   const router = useRouter();
@@ -385,6 +386,49 @@ export default function MemberDashboard() {
 
       {/* 3. Main Area */}
       <main className="flex-1 min-h-screen overflow-y-auto p-4 sm:p-8">
+        {/* Mandatory Legal Agreement Acceptance Modal */}
+        <LegalAgreementAcceptanceModal
+          token={typeof window !== 'undefined' ? localStorage.getItem('token') : null}
+          userRole="member"
+          onAllAccepted={() => {}}
+        />
+
+        {/* Member Suspension Alert */}
+        {(user?.membershipStatus === 'suspended' || user?.status === 'suspended') && (
+          <div className="mb-6 p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-red-200 space-y-2 shadow-2xl">
+            <div className="flex items-center gap-2 text-base font-black text-white">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              Membership Account Suspended
+            </div>
+            <p className="text-xs leading-relaxed text-red-200">
+              Your organizational membership has been suspended by the administration. Reason:{' '}
+              <strong className="text-white">{user?.suspensionReason || 'Under administrative review'}</strong>.
+              Access to verified membership credentials is restricted.
+            </p>
+          </div>
+        )}
+
+        {/* Member Expiry Alert */}
+        {(user?.membershipStatus === 'expired' ||
+          (user?.membershipExpiryDate && new Date(user?.membershipExpiryDate) < new Date())) &&
+          user?.membershipStatus !== 'suspended' && (
+            <div className="mb-6 p-5 rounded-2xl bg-amber-950/80 border-2 border-amber-600 text-amber-200 space-y-2 shadow-2xl">
+              <div className="flex items-center gap-2 text-base font-black text-white">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Membership Validity Expired
+              </div>
+              <p className="text-xs leading-relaxed text-amber-200">
+                Your organizational membership expired on{' '}
+                <strong className="text-white">
+                  {user?.membershipExpiryDate
+                    ? new Date(user?.membershipExpiryDate).toLocaleDateString()
+                    : 'Scheduled validity end'}
+                </strong>
+                . Please contact the Central Administration / National Committee to process your membership renewal.
+              </p>
+            </div>
+          )}
+
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-8 border-b border-slate-800">
           <div>
@@ -802,6 +846,8 @@ export default function MemberDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
                   <input
                     type="password"
+                    name="currentPassword"
+                    autoComplete="current-password"
                     required
                     value={passwords.currentPassword}
                     onChange={(e) =>
@@ -815,6 +861,8 @@ export default function MemberDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">New Password *</label>
                   <input
                     type="password"
+                    name="newPassword"
+                    autoComplete="new-password"
                     required
                     value={passwords.newPassword}
                     onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
@@ -827,6 +875,8 @@ export default function MemberDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
                   <input
                     type="password"
+                    name="confirmPassword"
+                    autoComplete="new-password"
                     required
                     value={passwords.confirmPassword}
                     onChange={(e) =>

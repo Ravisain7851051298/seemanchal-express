@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Category = require('../models/Category');
 const Position = require('../models/Position');
 const News = require('../models/News');
+const { seedLegalDocuments } = require('./seedLegalDocs');
 
 const initialCategories = [
   { name: 'National', nameHindi: 'राष्ट्रीय', slug: 'national', order: 1, description: 'देशभर की प्रमुख खबरें' },
@@ -296,6 +297,9 @@ const seedDatabase = async () => {
       ]);
       console.log('Sample news published.');
     }
+
+    // Seed/verify all 15 Legal Documents
+    await seedLegalDocuments(adminUser ? adminUser._id : null);
   } catch (err) {
     console.error('Error during database seed:', err.message);
   }

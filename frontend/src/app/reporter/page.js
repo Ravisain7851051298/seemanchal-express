@@ -49,6 +49,7 @@ import getMediaUrl from '../../lib/imageHelper';
 import MarkdownView from '../../components/common/MarkdownView';
 import DigitalIdCard from '../../components/documents/DigitalIdCard';
 import AppointmentLetter from '../../components/documents/AppointmentLetter';
+import LegalAgreementAcceptanceModal from '../../components/legal/LegalAgreementAcceptanceModal';
 
 export default function ReporterDashboard() {
   const router = useRouter();
@@ -660,6 +661,28 @@ export default function ReporterDashboard() {
 
       {/* 3. Main Content View Area */}
       <main className="flex-1 min-h-screen overflow-y-auto p-4 sm:p-8">
+        {/* Mandatory Legal Agreement Acceptance Modal */}
+        <LegalAgreementAcceptanceModal
+          token={typeof window !== 'undefined' ? localStorage.getItem('token') : null}
+          userRole="reporter"
+          onAllAccepted={() => {}}
+        />
+
+        {/* Reporter Suspension Banner */}
+        {(user?.reporterStatus === 'suspended' || user?.status === 'suspended') && (
+          <div className="mb-6 p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-red-200 space-y-2 shadow-2xl">
+            <div className="flex items-center gap-2 text-base font-black text-white">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Reporter Privileges Suspended
+            </div>
+            <p className="text-xs leading-relaxed text-red-200">
+              Your press correspondent privileges have been suspended by the central administration. Reason:{' '}
+              <strong className="text-white">{user?.suspensionReason || 'Under administrative review'}</strong>.
+              New news story submissions are temporarily blocked. All previously submitted and published news articles remain fully preserved.
+            </p>
+          </div>
+        )}
+
         {/* Top Header Inside Main Content */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-8 border-b border-slate-800">
           <div>
@@ -837,6 +860,26 @@ export default function ReporterDashboard() {
 
         {/* TAB 2: SUBMIT NEWS / FIELD REPORT */}
         {activeTab === 'submit' && (
+          (user?.reporterStatus === 'suspended' || user?.status === 'suspended') ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Submissions Temporarily Restricted</h3>
+              <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+                Your reporter privileges are currently marked as suspended ({user?.suspensionReason || 'under administrative review'}). You cannot file new stories until reinstated by the Chief Editor.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('my-reports')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  View My Existing Published Reports
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
             <div className="border-b border-slate-800 pb-4 mb-6">
               <h3 className="text-lg font-black text-white">File News Report for Editorial Review</h3>
@@ -1097,6 +1140,7 @@ export default function ReporterDashboard() {
               </div>
             </form>
           </div>
+          )
         )}
 
         {/* TAB 3: MY REPORTS & SUBMISSIONS */}
@@ -1432,6 +1476,8 @@ export default function ReporterDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
                   <input
                     type="password"
+                    name="currentPassword"
+                    autoComplete="current-password"
                     required
                     value={passwords.currentPassword}
                     onChange={(e) =>
@@ -1445,6 +1491,8 @@ export default function ReporterDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">New Password *</label>
                   <input
                     type="password"
+                    name="newPassword"
+                    autoComplete="new-password"
                     required
                     value={passwords.newPassword}
                     onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
@@ -1457,6 +1505,8 @@ export default function ReporterDashboard() {
                   <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
                   <input
                     type="password"
+                    name="confirmPassword"
+                    autoComplete="new-password"
                     required
                     value={passwords.confirmPassword}
                     onChange={(e) =>

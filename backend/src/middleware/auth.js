@@ -25,13 +25,61 @@ const protect = async (req, res, next) => {
 };
 
 const authorize = (...roles) => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: `User role '${req.user ? req.user.role : 'guest'}' is not authorized to access this resource`,
       });
     }
+
+    // Admin always has unrestricted access
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    // Reporter suspension check
+    if (req.user.role === 'reporter') {
+      const isSuspended =
+        req.user.reporterStatus === 'suspended' || req.user.status === 'suspended';
+      if (isSuspended) {
+        return res.status(403).json({
+          success: false,
+          isSuspended: true,
+          message: `Your reporter account is suspended. Reason: ${req.user.suspensionReason || 'Administrative review'}. New news submissions and panel features are restricted.`,
+        });
+      }
+    }
+
+    // Member suspension & expiry check
+    if (req.user.role === 'member') {
+      // Dynamic backend expiry validation
+      if (
+        req.user.membershipExpiryDate &&
+        new Date(req.user.membershipExpiryDate) < new Date() &&
+        req.user.membershipStatus !== 'expired'
+      ) {
+        req.user.membershipStatus = 'expired';
+        await req.user.save().catch(() => {});
+      }
+
+      if (req.user.membershipStatus === 'suspended' || req.user.status === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          isSuspended: true,
+          message: `Your membership has been suspended. Reason: ${req.user.suspensionReason || 'Administrative review'}.`,
+        });
+      }
+
+      if (req.user.membershipStatus === 'expired') {
+        return res.status(403).json({
+          success: false,
+          isExpired: true,
+          message: 'Your membership has expired. Please contact admin for membership renewal.',
+        });
+      }
+    }
+
     next();
   };
 };

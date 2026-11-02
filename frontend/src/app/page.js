@@ -122,7 +122,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
+    <div className="max-w-7xl mx-auto px-2 sm:px-8 py-2 sm:py-6">
       {/* 0. Breaking News Banner (Auto Changes if Multiple) */}
       {currentBreaking && (
         <div
@@ -193,47 +193,32 @@ export default function HomePage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
-                  {/* Badges on Hero Image */}
-                  <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10">
-                    <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-                      {heroNews.categoryName || 'Top Headline'}
+                  {/* Badges on Hero Image (Top Left) */}
+                  <div className="absolute top-1 md:top-4 left-1 md:left-4 flex flex-wrap gap-2 z-10">
+                    <span className="bg-red-600 text-white text-[8px] md:text-xs font-bold px-2 md:px-3 py-[1px] md:py-1 rounded-full shadow uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-yellow-300" />
+                      {heroNews.categoryName}
                     </span>
                     {heroNews.isBreaking && (
-                      <span className="bg-amber-400 text-slate-900 text-xs font-bold px-2.5 py-1 rounded shadow flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                      <span className="bg-amber-400 text-slate-900 text-[8px] md:text-xs font-bold px-[3px] md:px-2.5 py-[1px] md:py-1 rounded-full shadow flex items-center gap-1">
+                        <Flame className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-red-600 animate-pulse" />
                         Breaking
-                      </span>
-                    )}
-                    {heroList.length > 1 && (
-                      <span className="bg-slate-900/80 text-amber-300 text-xs font-bold px-2.5 py-1 rounded shadow border border-slate-700">
-                        Highlight {heroIndex + 1}/{heroList.length}
                       </span>
                     )}
                   </div>
 
-                  {/* Slide Indicators / Dots */}
+                  {/* Top Right: Slide Counter Badge */}
                   {heroList.length > 1 && (
-                    <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-                      {heroList.map((_, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setHeroIndex(i)}
-                          className={`h-2 rounded-full transition-all ${
-                            i === heroIndex % heroList.length
-                              ? 'w-6 bg-red-500'
-                              : 'w-2 bg-white/60 hover:bg-white'
-                          }`}
-                          title={`Go to highlight ${i + 1}`}
-                        />
-                      ))}
+                    <div className="absolute top-1 md:top-4 right-1 md:right-4 z-10">
+                      <span className="bg-slate-950/80 backdrop-blur-sm text-amber-300 text-[8px] md:text-xs font-bold px-2 md:px-2.5 py-[1px] md:py-1 rounded-full shadow border border-slate-700/80 font-mono flex items-center gap-1">
+                        {heroIndex + 1}/{heroList.length}
+                      </span>
                     </div>
                   )}
 
                   {/* Prev / Next Navigation Buttons if Multiple Highlights */}
                   {heroList.length > 1 && (
-                    <div className="absolute inset-y-0 inset-x-2 flex items-center justify-between pointer-events-none z-10">
+                    <div className="absolute inset-y-0 inset-x-0 md:inset-x-2 flex items-center justify-between pointer-events-none z-10">
                       <button
                         type="button"
                         onClick={() =>
@@ -256,11 +241,11 @@ export default function HomePage() {
                   )}
 
                   {/* Text Overlay on Hero */}
-                  <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7 text-white">
+                  <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-7 text-white">
                     <div className="flex items-center gap-4 text-xs text-slate-300 mb-2">
                       <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-red-400" />
-                        {heroNews.location || 'Seemanchal'}
+                        <Eye className="w-3.5 h-3.5 text-sky-400" />
+                        {heroNews.views || 0} views
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
@@ -273,24 +258,43 @@ export default function HomePage() {
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5 text-sky-400" />
-                        {heroNews.views || 0} views
+                        <MapPin className="w-3.5 h-3.5 text-red-400" />
+                        {heroNews.location}
                       </span>
                     </div>
 
                     <Link href={`/news/${heroNews.slug}`}>
-                      <h1 className="text-xl sm:text-3xl font-extrabold text-white leading-tight group-hover:text-red-400 transition-colors">
+                      <h1 className="text-xl sm:text-3xl font-extrabold text-white leading-tight group-hover:text-red-400 transition-colors line-clamp-2 md:line-clamp-2">
                         {heroNews.title}
                       </h1>
                     </Link>
 
                     {heroNews.subtitle && (
-                      <p className="mt-2 text-xs sm:text-sm text-slate-200 line-clamp-2">
+                      <p className="mt-2 text-xs sm:text-sm text-slate-200 line-clamp-2 md:line-clamp-3">
                         {heroNews.subtitle}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Slide Indicators / Dots below slide on white background */}
+                {heroList.length > 1 && (
+                  <div className="bg-white py-2.5 px-4 flex items-center justify-center gap-1.5 border-t border-slate-100">
+                    {heroList.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setHeroIndex(i)}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          i === heroIndex % heroList.length
+                            ? 'w-6 bg-red-600'
+                            : 'w-2 bg-slate-300 hover:bg-slate-400'
+                        }`}
+                        title={`Go to highlight ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="h-96 rounded-xl bg-slate-200 animate-pulse flex items-center justify-center">
