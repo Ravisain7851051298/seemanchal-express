@@ -1,12 +1,50 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShieldCheck, Printer } from 'lucide-react';
+import api from '../../lib/api';
 import getMediaUrl from '../../lib/imageHelper';
 
 export default function DigitalIdCard({ cardData, onPrint }) {
+  const [liveSettings, setLiveSettings] = useState(null);
+
+  useEffect(() => {
+    if (!cardData?.officialSeal && !cardData?.presidentSignature) {
+      api
+        .get('/settings')
+        .then((res) => {
+          if (res.data?.success) {
+            setLiveSettings(res.data.settings);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [cardData]);
+
   if (!cardData) return null;
+
+  const sealUrl =
+    cardData.officialSeal ||
+    cardData.organization?.credentials?.officialSeal ||
+    liveSettings?.credentials?.officialSeal;
+
+  const sigUrl =
+    cardData.presidentSignature ||
+    cardData.organization?.credentials?.presidentSignature ||
+    liveSettings?.credentials?.presidentSignature;
+
+  const signatoryName =
+    cardData.signatoryName ||
+    cardData.organization?.credentials?.signatoryName ||
+    liveSettings?.credentials?.signatoryName ||
+    'National President';
+
+  const signatoryDesignation =
+    cardData.signatoryDesignation ||
+    cardData.organization?.credentials?.signatoryDesignation ||
+    liveSettings?.credentials?.signatoryDesignation ||
+    'Editor-in-Chief / Secretariat';
 
   const isReporter = cardData.role === 'reporter';
   const headerBg = isReporter
@@ -106,16 +144,30 @@ export default function DigitalIdCard({ cardData, onPrint }) {
             </div>
           </div>
 
-          {/* QR Code & Authority Signatures */}
-          <div className="w-full mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3 text-left">
-            <div className="flex flex-col items-center">
+          {/* QR Code, Official Seal & Authority Signatures */}
+          <div className="w-full mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2 text-left">
+            {/* QR Code */}
+            <div className="flex flex-col items-center shrink-0">
               <div className="p-1 bg-white border border-slate-300 rounded shadow-sm">
-                <QRCodeSVG value={verifyUrl} size={65} level="M" />
+                <QRCodeSVG value={verifyUrl} size={60} level="M" />
               </div>
               <span className="text-[9px] text-slate-400 mt-0.5">Scan to Verify</span>
             </div>
 
-            <div className="text-right flex flex-col justify-between h-full">
+            {/* Official Seal / Stamp */}
+            {sealUrl && (
+              <div className="flex flex-col items-center shrink-0">
+                <img
+                  src={getMediaUrl(sealUrl)}
+                  alt="Official Seal"
+                  className="w-12 h-12 object-contain rounded-full border border-red-600/30 p-0.5 bg-white shadow-sm"
+                />
+                <span className="text-[8px] text-red-800 font-bold mt-0.5 uppercase tracking-tighter">Seal</span>
+              </div>
+            )}
+
+            {/* Validity & Signature */}
+            <div className="text-right flex flex-col justify-between h-full min-w-[110px]">
               <div className="text-[10px] text-slate-400 font-medium">
                 Validity: <br />
                 <strong className="text-slate-800 font-bold">
@@ -125,9 +177,24 @@ export default function DigitalIdCard({ cardData, onPrint }) {
                 </strong>
               </div>
 
-              <div className="mt-2 text-center border-t border-slate-400 pt-1">
-                <div className="text-[10px] font-black text-red-700">Authorized Signatory</div>
-                <div className="text-[8px] text-slate-500 leading-none">Editor-in-Chief / Secretariat</div>
+              <div className="mt-1 text-center border-t border-slate-400 pt-1">
+                {sigUrl ? (
+                  <div className="h-7 flex items-end justify-center mb-0.5">
+                    <img
+                      src={getMediaUrl(sigUrl)}
+                      alt="Signature"
+                      className="max-h-7 max-w-[110px] object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-[9px] font-bold text-red-800 italic leading-none mb-0.5">
+                    {signatoryName}
+                  </div>
+                )}
+                <div className="text-[9px] font-black text-red-700 leading-tight">Authorized Signatory</div>
+                <div className="text-[8px] text-slate-500 leading-none">
+                  {signatoryDesignation}
+                </div>
               </div>
             </div>
           </div>

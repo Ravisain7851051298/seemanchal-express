@@ -26,6 +26,14 @@ const newsSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  categories: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+  }],
+  categoryNames: [{
+    type: String,
+    trim: true,
+  }],
   content: {
     type: String,
     required: true,

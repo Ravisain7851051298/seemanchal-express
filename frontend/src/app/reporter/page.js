@@ -13,6 +13,7 @@ import {
   XCircle,
   CreditCard,
   Eye,
+  EyeOff,
   MapPin,
   LogOut,
   Send,
@@ -71,6 +72,7 @@ export default function ReporterDashboard() {
     title: '',
     subtitle: '',
     category: '',
+    categories: [],
     location: '',
     content: '',
     thumbnail: '',
@@ -81,6 +83,8 @@ export default function ReporterDashboard() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingEditVideo, setUploadingEditVideo] = useState(false);
   const [previewMarkdown, setPreviewMarkdown] = useState(false);
 
   // Edit Report Modal State (for pending/rejected stories)
@@ -89,6 +93,7 @@ export default function ReporterDashboard() {
     title: '',
     subtitle: '',
     category: '',
+    categories: [],
     location: '',
     content: '',
     thumbnail: '',
@@ -109,6 +114,7 @@ export default function ReporterDashboard() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [showReporterPasswords, setShowReporterPasswords] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ text: '', type: '' });
 
@@ -219,8 +225,12 @@ export default function ReporterDashboard() {
       setFormError('Please enter the report body content.');
       return;
     }
-    if (!newsForm.category) {
-      setFormError('Please select a news category.');
+    const cats = Array.isArray(newsForm.categories) && newsForm.categories.length > 0
+      ? newsForm.categories
+      : (newsForm.category ? [newsForm.category] : (categories[0]?._id ? [categories[0]._id] : []));
+
+    if (cats.length === 0) {
+      setFormError('Please select at least one news category.');
       return;
     }
 
@@ -229,7 +239,8 @@ export default function ReporterDashboard() {
       const payload = {
         title: newsForm.title.trim(),
         subtitle: newsForm.subtitle.trim(),
-        category: newsForm.category,
+        category: cats[0],
+        categories: cats,
         location: newsForm.location.trim() || user?.assignedLocation || 'Seemanchal',
         content: newsForm.content.trim(),
         thumbnail:
@@ -250,6 +261,7 @@ export default function ReporterDashboard() {
           title: '',
           subtitle: '',
           category: categories[0]?._id || '',
+          categories: [],
           location: user?.assignedLocation || 'Kishanganj, Bihar',
           content: '',
           thumbnail: '',
@@ -295,6 +307,50 @@ export default function ReporterDashboard() {
     }
   };
 
+  // Upload video file for report (creation or editing)
+  const handleNewsVideoUpload = async (e, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 200 * 1024 * 1024) {
+      alert('Video file is too large. Maximum allowed size is 200MB.');
+      return;
+    }
+
+    if (isEdit) {
+      setUploadingEditVideo(true);
+    } else {
+      setUploadingVideo(true);
+    }
+
+    const data = new FormData();
+    data.append('video', file);
+
+    try {
+      const res = await api.post('/upload/video', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        if (isEdit) {
+          setEditReportForm((prev) => ({ ...prev, videoUrl: res.data.fileUrl }));
+        } else {
+          setNewsForm((prev) => ({ ...prev, videoUrl: res.data.fileUrl }));
+        }
+      } else {
+        alert(res.data.message || 'Video upload failed');
+      }
+    } catch (err) {
+      console.error('Reporter video upload error:', err);
+      alert('Video upload failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      if (isEdit) {
+        setUploadingEditVideo(false);
+      } else {
+        setUploadingVideo(false);
+      }
+    }
+  };
+
   // Quick Markdown tag inserter
   const insertMarkdownTag = (tagType, isEdit = false) => {
     const setForm = isEdit ? setEditReportForm : setNewsForm;
@@ -317,10 +373,15 @@ export default function ReporterDashboard() {
     if (!editingReport) return;
     setEditReportSubmitting(true);
     try {
+      const cats = Array.isArray(editReportForm.categories) && editReportForm.categories.length > 0
+        ? editReportForm.categories
+        : (editReportForm.category ? [editReportForm.category] : []);
+
       const payload = {
         title: editReportForm.title.trim(),
         subtitle: editReportForm.subtitle.trim(),
-        category: editReportForm.category,
+        category: cats[0] || editReportForm.category,
+        categories: cats,
         location: editReportForm.location.trim() || user?.assignedLocation || 'Seemanchal',
         content: editReportForm.content.trim(),
         thumbnail: editReportForm.thumbnail.trim(),
@@ -809,9 +870,19 @@ export default function ReporterDashboard() {
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
-                            {story.category?.name || 'News'}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {Array.isArray(story.categories) && story.categories.length > 0 ? (
+                              story.categories.map((c, idx) => (
+                                <span key={c._id || idx} className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
+                                  {c.name || c.nameHindi}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
+                                {story.category?.name || story.categoryName || 'News'}
+                              </span>
+                            )}
+                          </div>
                           <h4 className="text-xs font-bold text-white line-clamp-1">
                             {story.title}
                           </h4>
@@ -932,22 +1003,53 @@ export default function ReporterDashboard() {
                 />
               </div>
 
-              {/* Category & Location */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Categories & Location */}
+              <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-200 mb-1.5">News Category *</label>
-                  <select
-                    required
-                    value={newsForm.category}
-                    onChange={(e) => setNewsForm({ ...newsForm, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-amber-500 font-medium"
-                  >
-                    {categories.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} {c.nameHindi ? `(${c.nameHindi})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-200">
+                      News Categories * <span className="text-xs font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                    </label>
+                    <span className="text-xs text-slate-400">
+                      {(newsForm.categories || []).length} selected
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/80 border border-slate-700 rounded-xl max-h-36 overflow-y-auto">
+                    {categories.map((c) => {
+                      const isSelected = (newsForm.categories || []).includes(c._id) || (newsForm.categories?.length === 0 && newsForm.category === c._id);
+                      return (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => {
+                            const current = (newsForm.categories && newsForm.categories.length > 0)
+                              ? newsForm.categories
+                              : (newsForm.category ? [newsForm.category] : []);
+                            let updated;
+                            if (current.includes(c._id)) {
+                              updated = current.filter((id) => id !== c._id);
+                            } else {
+                              updated = [...current, c._id];
+                            }
+                            setNewsForm({
+                              ...newsForm,
+                              categories: updated,
+                              category: updated[0] || '',
+                            });
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            isSelected
+                              ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
+                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                          <span>{c.name}</span>
+                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -1003,17 +1105,46 @@ export default function ReporterDashboard() {
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-200 mb-1.5 flex items-center gap-1.5">
-                    <Video className="w-3.5 h-3.5 text-red-500" />
-                    Video Clip / Broadcast Link (YouTube / MP4)
+                  <label className="font-bold text-slate-200 mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-red-500" />
+                      Video Clip (Upload File or URL)
+                    </span>
+                    <label className={`cursor-pointer px-2.5 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 transition-all ${
+                      uploadingVideo
+                        ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                        : 'bg-red-950/80 hover:bg-red-900 text-red-300 border-red-800/80'
+                    }`}>
+                      <Upload className="w-3 h-3" />
+                      {uploadingVideo ? 'Uploading...' : 'Upload Video'}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                        disabled={uploadingVideo}
+                        className="hidden"
+                        onChange={(e) => handleNewsVideoUpload(e, false)}
+                      />
+                    </label>
                   </label>
                   <input
                     type="text"
                     value={newsForm.videoUrl}
                     onChange={(e) => setNewsForm({ ...newsForm, videoUrl: e.target.value })}
-                    placeholder="https://youtube.com/watch?v=... or MP4 URL"
+                    placeholder="Upload video above or paste YouTube / MP4 URL..."
                     className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
                   />
+                  {newsForm.videoUrl && (
+                    <div className="mt-1.5 p-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
+                      <span className="truncate max-w-[260px]">✓ Video: {newsForm.videoUrl}</span>
+                      <button
+                        type="button"
+                        onClick={() => setNewsForm({ ...newsForm, videoUrl: '' })}
+                        className="text-red-400 hover:text-red-300 text-[10px]"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1210,10 +1341,18 @@ export default function ReporterDashboard() {
                       </div>
 
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 uppercase border border-amber-800/60">
-                            {story.category?.name || 'News'}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                          {Array.isArray(story.categories) && story.categories.length > 0 ? (
+                            story.categories.map((c, idx) => (
+                              <span key={c._id || idx} className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 uppercase border border-amber-800/60">
+                                {c.name || c.nameHindi || 'News'}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 uppercase border border-amber-800/60">
+                              {story.category?.name || story.categoryName || 'News'}
+                            </span>
+                          )}
                           <span className="text-xs text-slate-400 flex items-center gap-1">
                             <MapPin className="w-3 h-3 text-red-400" />
                             {story.location}
@@ -1256,11 +1395,21 @@ export default function ReporterDashboard() {
                       {(story.status === 'pending' || story.status === 'rejected') && (
                         <button
                           onClick={() => {
+                            let initialCategories = [];
+                            if (Array.isArray(story.categories) && story.categories.length > 0) {
+                              initialCategories = story.categories.map((c) => (typeof c === 'object' && c ? c._id : c)).filter(Boolean);
+                            } else if (story.category) {
+                              initialCategories = [typeof story.category === 'object' && story.category ? story.category._id : story.category].filter(Boolean);
+                            } else if (categories[0]?._id) {
+                              initialCategories = [categories[0]._id];
+                            }
+
                             setEditingReport(story);
                             setEditReportForm({
                               title: story.title || '',
                               subtitle: story.subtitle || '',
-                              category: story.category?._id || story.category || '',
+                              category: initialCategories[0] || '',
+                              categories: initialCategories,
                               location: story.location || '',
                               content: story.content || '',
                               thumbnail: story.thumbnail || '',
@@ -1474,46 +1623,88 @@ export default function ReporterDashboard() {
               <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    autoComplete="current-password"
-                    required
-                    value={passwords.currentPassword}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, currentPassword: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showReporterPasswords ? 'text' : 'password'}
+                      name="currentPassword"
+                      autoComplete="current-password"
+                      required
+                      value={passwords.currentPassword}
+                      onChange={(e) =>
+                        setPasswords({ ...passwords, currentPassword: e.target.value })
+                      }
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowReporterPasswords(!showReporterPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showReporterPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showReporterPasswords ? (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">New Password *</label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    autoComplete="new-password"
-                    required
-                    value={passwords.newPassword}
-                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                    placeholder="Minimum 6 characters"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showReporterPasswords ? 'text' : 'password'}
+                      name="newPassword"
+                      autoComplete="new-password"
+                      required
+                      value={passwords.newPassword}
+                      onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                      placeholder="Minimum 6 characters"
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowReporterPasswords(!showReporterPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showReporterPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showReporterPasswords ? (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    autoComplete="new-password"
-                    required
-                    value={passwords.confirmPassword}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, confirmPassword: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showReporterPasswords ? 'text' : 'password'}
+                      name="confirmPassword"
+                      autoComplete="new-password"
+                      required
+                      value={passwords.confirmPassword}
+                      onChange={(e) =>
+                        setPasswords({ ...passwords, confirmPassword: e.target.value })
+                      }
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowReporterPasswords(!showReporterPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showReporterPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showReporterPasswords ? (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -1581,33 +1772,62 @@ export default function ReporterDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-slate-300 mb-1">Category *</label>
-                    <select
-                      required
-                      value={editReportForm.category}
-                      onChange={(e) => setEditReportForm({ ...editReportForm, category: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                    >
-                      {categories.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name} {c.nameHindi ? `(${c.nameHindi})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-300">
+                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      {(editReportForm.categories || []).length} selected
+                    </span>
                   </div>
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                    {categories.map((c) => {
+                      const isSelected = (editReportForm.categories || []).includes(c._id) || (editReportForm.categories?.length === 0 && editReportForm.category === c._id);
+                      return (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => {
+                            const current = (editReportForm.categories && editReportForm.categories.length > 0)
+                              ? editReportForm.categories
+                              : (editReportForm.category ? [editReportForm.category] : []);
+                            let updated;
+                            if (current.includes(c._id)) {
+                              updated = current.filter((id) => id !== c._id);
+                            } else {
+                              updated = [...current, c._id];
+                            }
+                            setEditReportForm({
+                              ...editReportForm,
+                              categories: updated,
+                              category: updated[0] || '',
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            isSelected
+                              ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
+                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                          <span>{c.name}</span>
+                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                  <div>
-                    <label className="block font-bold text-slate-300 mb-1">Dateline / Location *</label>
-                    <input
-                      type="text"
-                      required
-                      value={editReportForm.location}
-                      onChange={(e) => setEditReportForm({ ...editReportForm, location: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Dateline / Location *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editReportForm.location}
+                    onChange={(e) => setEditReportForm({ ...editReportForm, location: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1643,14 +1863,43 @@ export default function ReporterDashboard() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">Video Clip URL (YouTube / MP4)</label>
+                    <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
+                      <span>Video Clip (Upload File or URL)</span>
+                      <label className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 transition-all ${
+                        uploadingEditVideo
+                          ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                          : 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border-amber-800/80'
+                      }`}>
+                        <Upload className="w-3 h-3" />
+                        {uploadingEditVideo ? 'Uploading...' : 'Upload Video'}
+                        <input
+                          type="file"
+                          accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                          disabled={uploadingEditVideo}
+                          className="hidden"
+                          onChange={(e) => handleNewsVideoUpload(e, true)}
+                        />
+                      </label>
+                    </label>
                     <input
                       type="text"
                       value={editReportForm.videoUrl}
                       onChange={(e) => setEditReportForm({ ...editReportForm, videoUrl: e.target.value })}
-                      placeholder="https://youtube.com/watch?v=..."
+                      placeholder="Upload file above or paste YouTube / MP4 URL..."
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
                     />
+                    {editReportForm.videoUrl && (
+                      <div className="mt-1.5 p-1.5 px-2.5 rounded bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
+                        <span className="truncate max-w-[240px]">✓ Video: {editReportForm.videoUrl}</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditReportForm({ ...editReportForm, videoUrl: '' })}
+                          className="text-red-400 hover:text-red-300 text-[10px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1759,9 +2008,17 @@ export default function ReporterDashboard() {
               <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-amber-500 text-slate-950">
-                      {selectedReportModal.category?.name || 'News Story'}
-                    </span>
+                    {Array.isArray(selectedReportModal.categories) && selectedReportModal.categories.length > 0 ? (
+                      selectedReportModal.categories.map((c, idx) => (
+                        <span key={c._id || idx} className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-amber-500 text-slate-950">
+                          {c.name || c.nameHindi || 'News'}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-amber-500 text-slate-950">
+                        {selectedReportModal.category?.name || selectedReportModal.categoryName || 'News Story'}
+                      </span>
+                    )}
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider ${selectedReportModal.status === 'published'
                           ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
@@ -1813,7 +2070,7 @@ export default function ReporterDashboard() {
                 {selectedReportModal.videoUrl ? (
                   <div className="rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video flex items-center justify-center">
                     <video
-                      src={selectedReportModal.videoUrl}
+                      src={getMediaUrl(selectedReportModal.videoUrl)}
                       controls
                       className="w-full h-full object-contain"
                     />

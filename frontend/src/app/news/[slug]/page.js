@@ -105,12 +105,23 @@ export default function SingleNewsPage() {
     <div className="bg-slate-50 min-h-screen py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-4">
           <Link href="/" className="hover:text-red-600">Home</Link>
           <ChevronRight className="w-3.5 h-3.5" />
-          <Link href={`/category/${news.category?.slug || 'all'}`} className="hover:text-red-600">
-            {news.categoryName || 'News'}
-          </Link>
+          {Array.isArray(news.categories) && news.categories.length > 0 ? (
+            news.categories.map((c, idx) => (
+              <span key={c._id || idx} className="flex items-center gap-2">
+                <Link href={`/category/${c.slug}`} className="hover:text-red-600 font-semibold">
+                  {c.name || c.nameHindi}
+                </Link>
+                {idx < news.categories.length - 1 && <span className="text-slate-400">/</span>}
+              </span>
+            ))
+          ) : (
+            <Link href={`/category/${news.category?.slug || 'all'}`} className="hover:text-red-600 font-semibold">
+              {news.categoryName || 'News'}
+            </Link>
+          )}
           <ChevronRight className="w-3.5 h-3.5" />
           <span className="text-slate-800 truncate max-w-xs">{news.title}</span>
         </div>
@@ -119,9 +130,24 @@ export default function SingleNewsPage() {
         <article className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 sm:p-10 mb-8">
           {/* Category & Location Badges */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded uppercase tracking-wider">
-              {news.categoryName || 'Special'}
-            </span>
+            {Array.isArray(news.categories) && news.categories.length > 0 ? (
+              news.categories.map((c, idx) => (
+                <Link
+                  key={c._id || idx}
+                  href={`/category/${c.slug}`}
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1 rounded uppercase tracking-wider transition-colors shadow-sm"
+                >
+                  {c.name || c.nameHindi}
+                </Link>
+              ))
+            ) : (
+              <Link
+                href={`/category/${news.category?.slug || 'all'}`}
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1 rounded uppercase tracking-wider transition-colors shadow-sm"
+              >
+                {news.categoryName || 'Special'}
+              </Link>
+            )}
             <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded flex items-center gap-1 border border-slate-200">
               <MapPin className="w-3.5 h-3.5 text-red-500" />
               {news.location || 'Seemanchal'}
@@ -207,9 +233,9 @@ export default function SingleNewsPage() {
                 ></iframe>
               ) : (
                 <video
-                  src={news.videoUrl}
+                  src={getMediaUrl(news.videoUrl)}
                   controls
-                  poster={news.thumbnail}
+                  poster={getMediaUrl(news.thumbnail)}
                   className="w-full h-full object-contain"
                 >
                   Your browser does not support HTML5 video.

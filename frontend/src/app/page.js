@@ -19,13 +19,14 @@ import {
   Flame,
   Award,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../lib/api';
 
 export default function HomePage() {
   const [featuredNews, setFeaturedNews] = useState([]);
   const [trendingNews, setTrendingNews] = useState([]);
-  const [breakingNews, setBreakingNews] = useState([]);
+  // const [breakingNews, setBreakingNews] = useState([]);
   const [latestNews, setLatestNews] = useState([]);
   const [seemanchalNews, setSeemanchalNews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +36,8 @@ export default function HomePage() {
   const [isHeroHovered, setIsHeroHovered] = useState(false);
 
   // Auto-Changing Breaking News Banners
-  const [breakingIndex, setBreakingIndex] = useState(0);
-  const [isBreakingHovered, setIsBreakingHovered] = useState(false);
+  // const [breakingIndex, setBreakingIndex] = useState(0);
+  // const [isBreakingHovered, setIsBreakingHovered] = useState(false);
 
   // Top Trending Stories: Auto Move from top to bottom if > 3
   const [trendingOffset, setTrendingOffset] = useState(0);
@@ -45,10 +46,9 @@ export default function HomePage() {
   useEffect(() => {
     const fetchHomeNews = async () => {
       try {
-        const [featRes, trendingRes, breakingRes, latestRes, seemanchalRes] = await Promise.allSettled([
+        const [featRes, trendingRes, latestRes, seemanchalRes] = await Promise.allSettled([
           api.get('/news/featured'),
           api.get('/news/trending'),
-          api.get('/news/breaking'),
           api.get('/news?limit=8'),
           api.get('/news?category=seemanchal-special&limit=4'),
         ]);
@@ -59,9 +59,9 @@ export default function HomePage() {
         if (trendingRes.status === 'fulfilled' && trendingRes.value.data.success) {
           setTrendingNews(trendingRes.value.data.news || []);
         }
-        if (breakingRes.status === 'fulfilled' && breakingRes.value.data.success) {
-          setBreakingNews(breakingRes.value.data.news || []);
-        }
+        // if (breakingRes.status === 'fulfilled' && breakingRes.value.data.success) {
+        //   setBreakingNews(breakingRes.value.data.news || []);
+        // }
         if (latestRes.status === 'fulfilled' && latestRes.value.data.success) {
           setLatestNews(latestRes.value.data.news || []);
         }
@@ -92,13 +92,13 @@ export default function HomePage() {
   }, [heroList.length, isHeroHovered]);
 
   // Breaking banner auto-change if multiple breaking news exist
-  useEffect(() => {
-    if (breakingNews.length <= 1 || isBreakingHovered) return;
-    const interval = setInterval(() => {
-      setBreakingIndex((prev) => (prev + 1) % breakingNews.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [breakingNews.length, isBreakingHovered]);
+  // useEffect(() => {
+  //   if (breakingNews.length <= 1 || isBreakingHovered) return;
+  //   const interval = setInterval(() => {
+  //     setBreakingIndex((prev) => (prev + 1) % breakingNews.length);
+  //   }, 4500);
+  //   return () => clearInterval(interval);
+  // }, [breakingNews.length, isBreakingHovered]);
 
   // Top Trending: Auto move from top to bottom if > 3 stories
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [trendingNews.length, isTrendingHovered]);
 
-  const currentBreaking = breakingNews.length > 0 ? breakingNews[breakingIndex % breakingNews.length] : null;
+  // const currentBreaking = breakingNews.length > 0 ? breakingNews[breakingIndex % breakingNews.length] : null;
 
   // Window of visible trending items (rotates smoothly from top to bottom)
   const totalTrending = trendingNews.length;
@@ -124,7 +124,7 @@ export default function HomePage() {
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-8 py-2 sm:py-6">
       {/* 0. Breaking News Banner (Auto Changes if Multiple) */}
-      {currentBreaking && (
+      {/* {currentBreaking && (
         <div
           onMouseEnter={() => setIsBreakingHovered(true)}
           onMouseLeave={() => setIsBreakingHovered(false)}
@@ -171,7 +171,42 @@ export default function HomePage() {
             </div>
           )}
         </div>
-      )}
+      )} */}
+
+      {/* Google Source Preference Strip */}
+      <div className="mb-6 rounded-xl border border-blue-200/80 bg-gradient-to-r from-blue-50/70 via-white to-red-50/40 p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all hover:shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>Google पर सीमांचल एक्सप्रेस को प्राथमिकता दें</span>
+              <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full hidden sm:inline">
+                Google News Preferred Source
+              </span>
+            </h3>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              सटीक, निष्पक्ष और विश्वसनीय ग्राउंड रिपोर्ट्स सबसे पहले अपने Google फ़ीड में पाने के लिए हमें प्राथमिकता दें।
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={`https://www.google.com/preferences/source?q=${process.env.NEXT_PUBLIC_WEB_DOMAIN || 'seemanchalexpress.in'}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 shrink-0"
+        >
+          <span>प्राथमिकता दें</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
 
       {/* 1. Hero / Top Headline Grid */}
       <section className="mb-10">
@@ -194,11 +229,23 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
                   {/* Badges on Hero Image (Top Left) */}
-                  <div className="absolute top-1 md:top-4 left-1 md:left-4 flex flex-wrap gap-2 z-10">
-                    <span className="bg-red-600 text-white text-[8px] md:text-xs font-bold px-2 md:px-3 py-[1px] md:py-1 rounded-full shadow uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-yellow-300" />
-                      {heroNews.categoryName}
-                    </span>
+                  <div className="absolute top-1 md:top-4 left-1 md:left-4 flex flex-wrap gap-1.5 md:gap-2 z-10 max-w-[70%]">
+                    {Array.isArray(heroNews.categories) && heroNews.categories.length > 0 ? (
+                      heroNews.categories.map((c, idx) => (
+                        <span
+                          key={c._id || idx}
+                          className="bg-red-600 text-white text-[8px] md:text-xs font-bold px-2 md:px-3 py-[1px] md:py-1 rounded-full shadow uppercase tracking-wider flex items-center gap-1"
+                        >
+                          <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-yellow-300" />
+                          {c.name || c.nameHindi}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="bg-red-600 text-white text-[8px] md:text-xs font-bold px-2 md:px-3 py-[1px] md:py-1 rounded-full shadow uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-yellow-300" />
+                        {heroNews.categoryName}
+                      </span>
+                    )}
                     {heroNews.isBreaking && (
                       <span className="bg-amber-400 text-slate-900 text-[8px] md:text-xs font-bold px-[3px] md:px-2.5 py-[1px] md:py-1 rounded-full shadow flex items-center gap-1">
                         <Flame className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-red-600 animate-pulse" />
@@ -285,11 +332,10 @@ export default function HomePage() {
                         key={i}
                         type="button"
                         onClick={() => setHeroIndex(i)}
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          i === heroIndex % heroList.length
-                            ? 'w-6 bg-red-600'
-                            : 'w-2 bg-slate-300 hover:bg-slate-400'
-                        }`}
+                        className={`h-2 rounded-full transition-all duration-300 ${i === heroIndex % heroList.length
+                          ? 'w-6 bg-red-600'
+                          : 'w-2 bg-slate-300 hover:bg-slate-400'
+                          }`}
                         title={`Go to highlight ${i + 1}`}
                       />
                     ))}
@@ -349,12 +395,22 @@ export default function HomePage() {
                     key={item._id ? `${item._id}-${trendingOffset}` : idx}
                     className="p-3 group hover:bg-slate-50 transition-all duration-500 animate-fadeIn"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-semibold text-red-600 uppercase tracking-wide">
-                        {item.categoryName || item.category?.name || 'Trending'}
-                      </span>
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(item.categories) && item.categories.length > 0 ? (
+                          item.categories.map((c, cIdx) => (
+                            <span key={c._id || cIdx} className="text-[10px] font-semibold text-red-600 uppercase tracking-wide">
+                              {c.name || c.nameHindi}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] font-semibold text-red-600 uppercase tracking-wide">
+                            {item.categoryName || item.category?.name || 'Trending'}
+                          </span>
+                        )}
+                      </div>
                       {totalTrending > 3 && (
-                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
                           #{(trendingOffset + idx) % totalTrending + 1}
                         </span>
                       )}
@@ -433,9 +489,19 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="p-4 flex flex-col flex-grow">
-                  <span className="text-[11px] font-bold text-red-600 uppercase">
-                    {item.categoryName || 'Seemanchal'}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {Array.isArray(item.categories) && item.categories.length > 0 ? (
+                      item.categories.map((c, idx) => (
+                        <span key={c._id || idx} className="text-[10px] font-bold text-red-600 uppercase bg-red-50 px-1.5 py-0.5 rounded">
+                          {c.name || c.nameHindi}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] font-bold text-red-600 uppercase">
+                        {item.categoryName || 'Seemanchal'}
+                      </span>
+                    )}
+                  </div>
                   <Link href={`/news/${item.slug}`} className="mt-1 flex-grow">
                     <h3 className="text-sm font-bold text-slate-900 group-hover:text-red-600 transition-colors line-clamp-2">
                       {item.title}
@@ -553,10 +619,18 @@ export default function HomePage() {
                 </div>
                 <div className="flex flex-col justify-between flex-grow">
                   <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-red-50 text-red-700">
-                        {news.categoryName || 'News'}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                      {Array.isArray(news.categories) && news.categories.length > 0 ? (
+                        news.categories.map((c, idx) => (
+                          <span key={c._id || idx} className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-50 text-red-700">
+                            {c.name || c.nameHindi}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-red-50 text-red-700">
+                          {news.categoryName || 'News'}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-400 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400" />
                         {news.location || 'India'}

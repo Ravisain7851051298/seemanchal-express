@@ -1,10 +1,50 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer } from 'lucide-react';
+import api from '../../lib/api';
+import getMediaUrl from '../../lib/imageHelper';
 
 export default function AppointmentLetter({ appointmentData, onPrint }) {
+  const [liveSettings, setLiveSettings] = useState(null);
+
+  useEffect(() => {
+    // If appointmentData doesn't already have official seal or signature, fetch from live settings
+    if (!appointmentData?.officialSeal && !appointmentData?.presidentSignature) {
+      api
+        .get('/settings')
+        .then((res) => {
+          if (res.data?.success) {
+            setLiveSettings(res.data.settings);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [appointmentData]);
+
   if (!appointmentData) return null;
+
+  const sealUrl =
+    appointmentData.officialSeal ||
+    appointmentData.organization?.credentials?.officialSeal ||
+    liveSettings?.credentials?.officialSeal;
+
+  const sigUrl =
+    appointmentData.presidentSignature ||
+    appointmentData.organization?.credentials?.presidentSignature ||
+    liveSettings?.credentials?.presidentSignature;
+
+  const signatoryName =
+    appointmentData.signatoryName ||
+    appointmentData.organization?.credentials?.signatoryName ||
+    liveSettings?.credentials?.signatoryName ||
+    'National President / Chief Editor';
+
+  const signatoryDesignation =
+    appointmentData.signatoryDesignation ||
+    appointmentData.organization?.credentials?.signatoryDesignation ||
+    liveSettings?.credentials?.signatoryDesignation ||
+    'Authorized Signatory & Chief Editor';
 
   const dateStr = appointmentData.date
     ? new Date(appointmentData.date).toLocaleDateString('en-US', {
@@ -110,24 +150,42 @@ export default function AppointmentLetter({ appointmentData, onPrint }) {
         {/* Signatures & Seal */}
         <div className="mt-10 pt-8 border-t border-slate-300 flex justify-between items-end font-sans text-xs">
           <div className="text-center">
-            <div className="w-20 h-20 rounded-full border-2 border-red-700 flex flex-col items-center justify-center p-1 text-[9px] text-red-800 font-bold uppercase tracking-tighter mx-auto mb-1">
-              <span>★ OFFICIAL ★</span>
-              <span className="font-black text-[10px]">SEEMANCHAL</span>
-              <span>EXPRESS</span>
-              <span>SEAL</span>
-            </div>
-            <span className="text-[10px] text-slate-400">Official Institutional Seal</span>
+            {sealUrl ? (
+              <div className="w-24 h-24 mx-auto mb-1 flex items-center justify-center">
+                <img
+                  src={getMediaUrl(sealUrl)}
+                  alt="Official Seal"
+                  className="w-24 h-24 object-contain rounded-full drop-shadow-md border border-red-700/30"
+                />
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full border-2 border-red-700 flex flex-col items-center justify-center p-1 text-[9px] text-red-800 font-bold uppercase tracking-tighter mx-auto mb-1">
+                <span>★ OFFICIAL ★</span>
+                <span className="font-black text-[10px]">SEEMANCHAL</span>
+                <span>EXPRESS</span>
+                <span>SEAL</span>
+              </div>
+            )}
+            <span className="text-[10px] text-slate-500 font-semibold block">Official Institutional Seal</span>
           </div>
 
           <div className="text-center">
-            <div className="h-10 border-b border-slate-800 w-44 mx-auto mb-1 flex items-end justify-center font-bold text-red-800 italic">
-              National President / Chief Editor
-            </div>
-            <strong className="block text-slate-900">Authorized Signatory</strong>
-            <span className="text-[11px] text-slate-500">
-              Seemanchal Express Central Secretariat
-            </span>
-            <span className="text-[10px] text-slate-400 block">New Delhi-110025</span>
+            {sigUrl ? (
+              <div className="h-14 flex items-end justify-center mb-1">
+                <img
+                  src={getMediaUrl(sigUrl)}
+                  alt="President / Chief Editor Signature"
+                  className="max-h-14 max-w-[200px] object-contain drop-shadow-sm"
+                />
+              </div>
+            ) : (
+              <div className="h-10 border-b border-slate-800 w-44 mx-auto mb-1 flex items-end justify-center font-bold text-red-800 italic">
+                {signatoryName}
+              </div>
+            )}
+            <strong className="block text-slate-900 text-xs">{signatoryName}</strong>
+            <span className="text-[11px] text-slate-600 block">{signatoryDesignation}</span>
+            <span className="text-[10px] text-slate-400 block">Seemanchal Express Central Secretariat, New Delhi</span>
           </div>
         </div>
       </div>

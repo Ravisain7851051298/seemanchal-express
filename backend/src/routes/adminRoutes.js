@@ -208,6 +208,20 @@ router.post('/applications/:id/approve', async (req, res) => {
     user.showOnTeamPage = Boolean(showOnTeamPage);
     user.rejectionReason = '';
 
+    if (!user.statusHistory) {
+      user.statusHistory = [];
+    }
+    user.statusHistory.push({
+      oldStatus: 'pending',
+      newStatus: 'active',
+      statusType: user.role === 'reporter' ? 'reporter' : 'membership',
+      reason: 'Application Approved',
+      remarks: `Commissioned as ${assignedDesignation} (${chosenLevel} Level) - ID: ${idCardNumber}`,
+      changedBy: req.user?._id || null,
+      changedByName: req.user?.name || 'Administrator',
+      changedAt: new Date(),
+    });
+
     await user.save();
 
     res.json({
@@ -327,6 +341,7 @@ router.get('/news', async (req, res) => {
 
     const news = await News.find(query)
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .populate('author', 'name email phone role photo assignedDesignation assignedLocation committeeLevel bio idCardNumber')
       .sort({ createdAt: -1 });
 
@@ -357,7 +372,13 @@ router.put('/news/:id/status', async (req, res) => {
     if (isTrending !== undefined) news.isTrending = Boolean(isTrending);
 
     await news.save();
-    res.json({ success: true, message: `News status changed to ${status}`, news });
+
+    const updatedNews = await News.findById(news._id)
+      .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
+      .populate('author', 'name email phone role photo assignedDesignation assignedLocation committeeLevel bio idCardNumber');
+
+    res.json({ success: true, message: `News status changed to ${status}`, news: updatedNews });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

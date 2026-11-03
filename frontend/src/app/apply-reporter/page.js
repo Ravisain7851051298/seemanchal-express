@@ -9,6 +9,8 @@ import {
   ArrowRight,
   Newspaper,
   Camera,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -16,6 +18,7 @@ import getMediaUrl from '../../lib/imageHelper';
 
 export default function ApplyReporterPage() {
   const { registerReporter } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -241,17 +244,31 @@ export default function ApplyReporterPage() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Set Login Password *
                   </label>
-                  <input
-                    type="password"
-                    name="password"
-                    id="password"
-                    autoComplete="new-password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Password"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      id="password"
+                      autoComplete="new-password"
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Password"
+                      className="w-full pl-3 pr-10 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 focus:outline-none p-0.5"
+                      title={showPassword ? 'Hide password' : 'View password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-amber-600" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>

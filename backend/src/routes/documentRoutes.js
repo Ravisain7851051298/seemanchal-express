@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const SiteSettings = require('../models/SiteSettings');
 const { protect } = require('../middleware/auth');
 
 const ORG_DETAILS = {
@@ -35,6 +36,7 @@ router.get('/id-card/:userId', protect, async (req, res) => {
     }
 
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify/${user.idCardNumber || user._id}`;
+    const settings = await SiteSettings.getSettings();
 
     res.json({
       success: true,
@@ -53,7 +55,14 @@ router.get('/id-card/:userId', protect, async (req, res) => {
         issueDate: user.appointmentLetterDate || user.updatedAt,
         validUntil: user.idCardValidUntil,
         verificationUrl,
-        organization: ORG_DETAILS,
+        officialSeal: settings.credentials?.officialSeal || '',
+        presidentSignature: settings.credentials?.presidentSignature || '',
+        signatoryName: settings.credentials?.signatoryName || 'National President / Chief Editor',
+        signatoryDesignation: settings.credentials?.signatoryDesignation || 'Editor-in-Chief & Central Secretariat',
+        organization: {
+          ...ORG_DETAILS,
+          credentials: settings.credentials,
+        },
       },
     });
   } catch (err) {
@@ -83,6 +92,7 @@ router.get('/appointment-letter/:userId', protect, async (req, res) => {
 
     const year = new Date(user.appointmentLetterDate || Date.now()).getFullYear();
     const referenceNo = user.appointmentReferenceNo || `SE/APPT/${year}/${user.idCardNumber ? user.idCardNumber.split('-').pop() : '001'}`;
+    const settings = await SiteSettings.getSettings();
 
     res.json({
       success: true,
@@ -99,7 +109,14 @@ router.get('/appointment-letter/:userId', protect, async (req, res) => {
         assignedLocation: user.assignedLocation,
         idCardNumber: user.idCardNumber,
         validUntil: user.idCardValidUntil,
-        organization: ORG_DETAILS,
+        officialSeal: settings.credentials?.officialSeal || '',
+        presidentSignature: settings.credentials?.presidentSignature || '',
+        signatoryName: settings.credentials?.signatoryName || 'National President / Chief Editor',
+        signatoryDesignation: settings.credentials?.signatoryDesignation || 'Editor-in-Chief & Central Secretariat',
+        organization: {
+          ...ORG_DETAILS,
+          credentials: settings.credentials,
+        },
       },
     });
   } catch (err) {

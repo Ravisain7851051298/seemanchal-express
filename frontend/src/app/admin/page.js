@@ -43,6 +43,7 @@ import {
   Calendar,
   Sparkles,
   History,
+  EyeOff,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import {
@@ -73,6 +74,7 @@ import ReporterManagementSection from '../../components/admin/ReporterManagement
 import MembershipManagementSection from '../../components/admin/MembershipManagementSection';
 import ComplaintsDeskSection from '../../components/admin/ComplaintsDeskSection';
 import AdminActivityLogsSection from '../../components/admin/AdminActivityLogsSection';
+import SiteSettingsSection from '../../components/admin/SiteSettingsSection';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -143,6 +145,7 @@ export default function AdminDashboard() {
 
   // Add Category Modal State
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     nameHindi: '',
@@ -151,12 +154,17 @@ export default function AdminDashboard() {
     order: 1,
   });
 
+  // Video Upload States
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [editVideoUploading, setEditVideoUploading] = useState(false);
+
   // Add News Modal State
   const [showAddNewsModal, setShowAddNewsModal] = useState(false);
   const [newNewsForm, setNewNewsForm] = useState({
     title: '',
     subtitle: '',
     category: '',
+    categories: [],
     content: '',
     thumbnail: '',
     videoUrl: '',
@@ -173,6 +181,7 @@ export default function AdminDashboard() {
     title: '',
     subtitle: '',
     category: '',
+    categories: [],
     content: '',
     thumbnail: '',
     videoUrl: '',
@@ -197,6 +206,7 @@ export default function AdminDashboard() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [showAdminPasswords, setShowAdminPasswords] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ text: '', type: '' });
 
@@ -531,6 +541,79 @@ export default function AdminDashboard() {
     }
   };
 
+  // Open Edit Category
+  const handleOpenEditCategory = (cat) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name || '',
+      nameHindi: cat.nameHindi || '',
+      slug: cat.slug || '',
+      description: cat.description || '',
+      order: cat.order ?? 1,
+    });
+  };
+
+  // Save Edit Category
+  const handleEditCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    try {
+      const res = await api.put(`/categories/${editingCategory._id}`, categoryForm);
+      if (res.data.success) {
+        setEditingCategory(null);
+        const catRes = await api.get('/categories');
+        if (catRes.data.success) dispatch(setAdminCategories(catRes.data.categories));
+        alert('Category updated successfully!');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update category');
+    }
+  };
+
+  // Video File Upload Handler
+  const handleVideoUpload = async (e, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 200 * 1024 * 1024) {
+      alert('Video file is too large. Maximum allowed size is 200MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('video', file);
+
+    if (isEdit) {
+      setEditVideoUploading(true);
+    } else {
+      setVideoUploading(true);
+    }
+
+    try {
+      const res = await api.post('/upload/video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        if (isEdit) {
+          setEditNewsForm((prev) => ({ ...prev, videoUrl: res.data.fileUrl }));
+        } else {
+          setNewNewsForm((prev) => ({ ...prev, videoUrl: res.data.fileUrl }));
+        }
+      } else {
+        alert(res.data.message || 'Failed to upload video');
+      }
+    } catch (err) {
+      console.error('Video upload error:', err);
+      alert(err.response?.data?.message || 'Failed to upload video');
+    } finally {
+      if (isEdit) {
+        setEditVideoUploading(false);
+      } else {
+        setVideoUploading(false);
+      }
+    }
+  };
+
   // Change News Status
   const handleUpdateNewsStatus = async (newsId, status) => {
     try {
@@ -590,9 +673,17 @@ export default function AdminDashboard() {
   const handleAddNewsSubmit = async (e) => {
     e.preventDefault();
     try {
+      const cats = Array.isArray(newNewsForm.categories) && newNewsForm.categories.length > 0
+        ? newNewsForm.categories
+        : (newNewsForm.category ? [newNewsForm.category] : (categories[0]?._id ? [categories[0]._id] : []));
+
       const payload = {
         ...newNewsForm,
-        tags: newNewsForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        categories: cats,
+        category: cats[0] || newNewsForm.category,
+        tags: typeof newNewsForm.tags === 'string'
+          ? newNewsForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
+          : newNewsForm.tags,
       };
       const res = await api.post('/news', payload);
       if (res.data.success) {
@@ -603,6 +694,7 @@ export default function AdminDashboard() {
           title: '',
           subtitle: '',
           category: categories[0]?._id || '',
+          categories: [],
           content: '',
           thumbnail: '',
           videoUrl: '',
@@ -622,10 +714,20 @@ export default function AdminDashboard() {
   // Open Edit News Story Modal
   const openEditNewsModal = (story) => {
     setEditingNewsStory(story);
+    let initialCategories = [];
+    if (Array.isArray(story.categories) && story.categories.length > 0) {
+      initialCategories = story.categories.map((c) => (typeof c === 'object' && c ? c._id : c)).filter(Boolean);
+    } else if (story.category) {
+      initialCategories = [typeof story.category === 'object' && story.category ? story.category._id : story.category].filter(Boolean);
+    } else if (categories[0]?._id) {
+      initialCategories = [categories[0]._id];
+    }
+
     setEditNewsForm({
       title: story.title || '',
       subtitle: story.subtitle || '',
-      category: story.category?._id || story.category || (categories[0]?._id || ''),
+      category: initialCategories[0] || '',
+      categories: initialCategories,
       content: story.content || '',
       thumbnail: story.thumbnail || '',
       videoUrl: story.videoUrl || '',
@@ -644,8 +746,14 @@ export default function AdminDashboard() {
     if (!editingNewsStory) return;
     setEditNewsSubmitting(true);
     try {
+      const cats = Array.isArray(editNewsForm.categories) && editNewsForm.categories.length > 0
+        ? editNewsForm.categories
+        : (editNewsForm.category ? [editNewsForm.category] : []);
+
       const payload = {
         ...editNewsForm,
+        categories: cats,
+        category: cats[0] || editNewsForm.category,
         tags: typeof editNewsForm.tags === 'string'
           ? editNewsForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
           : editNewsForm.tags,
@@ -653,6 +761,8 @@ export default function AdminDashboard() {
       const res = await api.put(`/news/${editingNewsStory._id}`, payload);
       if (res.data.success) {
         dispatch(updateNewsItem(res.data.news));
+        const newsRes = await api.get('/admin/news');
+        if (newsRes.data.success) dispatch(setAdminNewsList(newsRes.data.news));
         if (viewReportModalStory && viewReportModalStory._id === editingNewsStory._id) {
           setViewReportModalStory(res.data.news);
         }
@@ -1035,6 +1145,21 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => {
+                dispatch(setActiveAdminTab('settings'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'settings'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Award className="w-4 h-4 text-amber-400" />
+              <span>Seal, Signature & Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
                 dispatch(setActiveAdminTab('security'));
                 setSidebarOpen(false);
               }}
@@ -1089,6 +1214,7 @@ export default function AdminDashboard() {
               {activeAdminTab === 'positions' && 'Committee Structure & Sanctioned Positions'}
               {activeAdminTab === 'inquiries' && 'Public Messages & Whistleblower Tips'}
               {activeAdminTab === 'activity' && 'Administrative Activity Audit Logs'}
+              {activeAdminTab === 'settings' && 'Institutional Settings, Seal & Signatures'}
               {activeAdminTab === 'security' && 'Admin Password & Security'}
             </h2>
           </div>
@@ -1214,6 +1340,9 @@ export default function AdminDashboard() {
 
         {/* TAB: ADMINISTRATIVE ACTIVITY AUDIT LOGS */}
         {activeAdminTab === 'activity' && <AdminActivityLogsSection />}
+
+        {/* TAB: INSTITUTIONAL SETTINGS, SEAL & SIGNATURES */}
+        {activeAdminTab === 'settings' && <SiteSettingsSection />}
 
         {/* TAB 1: APPLICATIONS WORKFLOW */}
         {activeAdminTab === 'applications' && (
@@ -1673,9 +1802,17 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0 space-y-0.5">
                         {/* Line 1: Category, Status, Showcase Badges, Date & Views (Single line, never wraps) */}
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 whitespace-nowrap overflow-hidden">
-                          <span className="font-bold px-1.5 py-0.5 rounded bg-red-950/80 text-red-400 uppercase border border-red-800/60 shrink-0">
-                            {story.category?.name || 'News'}
-                          </span>
+                          {Array.isArray(story.categories) && story.categories.length > 0 ? (
+                            story.categories.map((c, idx) => (
+                              <span key={c._id || idx} className="font-bold px-1.5 py-0.5 rounded bg-red-950/80 text-red-400 uppercase border border-red-800/60 shrink-0">
+                                {c.name || c.nameHindi || 'News'}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="font-bold px-1.5 py-0.5 rounded bg-red-950/80 text-red-400 uppercase border border-red-800/60 shrink-0">
+                              {story.category?.name || story.categoryName || 'News'}
+                            </span>
+                          )}
                           <span
                             className={`font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
                               story.status === 'published'
@@ -1889,7 +2026,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((cat) => (
+              {[...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((cat) => (
                 <div
                   key={cat._id}
                   className="p-4 rounded-xl border border-slate-800 bg-slate-800/40 flex justify-between items-start"
@@ -1897,7 +2034,7 @@ export default function AdminDashboard() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 uppercase border border-red-800">
-                        Order #{cat.order}
+                        Priority #{cat.order ?? 0}
                       </span>
                       <span className="text-xs font-mono text-slate-400">/{cat.slug}</span>
                     </div>
@@ -1911,13 +2048,22 @@ export default function AdminDashboard() {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleDeleteCategory(cat._id)}
-                    className="p-1.5 text-slate-400 hover:text-red-400 rounded"
-                    title="Delete Category"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <button
+                      onClick={() => handleOpenEditCategory(cat)}
+                      className="p-1.5 text-slate-400 hover:text-amber-400 rounded hover:bg-slate-700/50 transition-colors"
+                      title="Edit Category & Priority"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCategory(cat._id)}
+                      className="p-1.5 text-slate-400 hover:text-red-400 rounded hover:bg-slate-700/50 transition-colors"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2049,46 +2195,88 @@ export default function AdminDashboard() {
             <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
-                <input
-                  type="password"
-                  name="currentPassword"
-                  autoComplete="current-password"
-                  required
-                  value={passwords.currentPassword}
-                  onChange={(e) =>
-                    setPasswords({ ...passwords, currentPassword: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showAdminPasswords ? 'text' : 'password'}
+                    name="currentPassword"
+                    autoComplete="current-password"
+                    required
+                    value={passwords.currentPassword}
+                    onChange={(e) =>
+                      setPasswords({ ...passwords, currentPassword: e.target.value })
+                    }
+                    className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPasswords(!showAdminPasswords)}
+                    className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                    title={showAdminPasswords ? 'Hide passwords' : 'View passwords'}
+                  >
+                    {showAdminPasswords ? (
+                      <EyeOff className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block font-bold text-slate-300 mb-1">New Master Password *</label>
-                <input
-                  type="password"
-                  name="newPassword"
-                  autoComplete="new-password"
-                  required
-                  value={passwords.newPassword}
-                  onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                  placeholder="Minimum 6 characters"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showAdminPasswords ? 'text' : 'password'}
+                    name="newPassword"
+                    autoComplete="new-password"
+                    required
+                    value={passwords.newPassword}
+                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPasswords(!showAdminPasswords)}
+                    className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                    title={showAdminPasswords ? 'Hide passwords' : 'View passwords'}
+                  >
+                    {showAdminPasswords ? (
+                      <EyeOff className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  autoComplete="new-password"
-                  required
-                  value={passwords.confirmPassword}
-                  onChange={(e) =>
-                    setPasswords({ ...passwords, confirmPassword: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showAdminPasswords ? 'text' : 'password'}
+                    name="confirmPassword"
+                    autoComplete="new-password"
+                    required
+                    value={passwords.confirmPassword}
+                    onChange={(e) =>
+                      setPasswords({ ...passwords, confirmPassword: e.target.value })
+                    }
+                    className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPasswords(!showAdminPasswords)}
+                    className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                    title={showAdminPasswords ? 'Hide passwords' : 'View passwords'}
+                  >
+                    {showAdminPasswords ? (
+                      <EyeOff className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button
@@ -2585,6 +2773,92 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* MODAL 7B: Edit Category Modal */}
+        {editingCategory && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-800">
+              <h3 className="text-base font-bold text-white mb-4 border-b border-slate-800 pb-2 flex items-center justify-between">
+                <span>Edit Category & Priority</span>
+                <span className="text-[11px] font-mono text-amber-400">/{editingCategory.slug}</span>
+              </h3>
+              <form onSubmit={handleEditCategorySubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Category Name (English) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryForm.name}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Category Name (Hindi)</label>
+                  <input
+                    type="text"
+                    value={categoryForm.nameHindi}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, nameHindi: e.target.value })}
+                    placeholder="e.g. सीमांचल विशेष"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">URL Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryForm.slug}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg font-mono text-[11px] text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Priority / Display Order (Navbar Sequence) *</span>
+                    <span className="text-[10px] text-slate-400">Lower number = Leftmost</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={categoryForm.order}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, order: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Description (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={categoryForm.description}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    className="px-4 py-2 bg-slate-800 rounded-lg text-slate-300 font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shadow"
+                  >
+                    Update Category
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* MODAL 8: Publish News Modal (With Video Support!) */}
         {showAddNewsModal && (
           <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2604,30 +2878,61 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-300 mb-1">Category *</label>
-                    <select
-                      value={newNewsForm.category}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, category: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                    >
-                      {categories.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-300">
+                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      {(newNewsForm.categories || []).length} selected
+                    </span>
                   </div>
-                  <div>
-                    <label className="block font-bold text-slate-300 mb-1">Dateline / Location</label>
-                    <input
-                      type="text"
-                      value={newNewsForm.location}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, location: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                    />
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                    {categories.map((c) => {
+                      const isSelected = (newNewsForm.categories || []).includes(c._id) || (newNewsForm.categories?.length === 0 && newNewsForm.category === c._id);
+                      return (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => {
+                            const current = (newNewsForm.categories && newNewsForm.categories.length > 0)
+                              ? newNewsForm.categories
+                              : (newNewsForm.category ? [newNewsForm.category] : []);
+                            let updated;
+                            if (current.includes(c._id)) {
+                              updated = current.filter((id) => id !== c._id);
+                            } else {
+                              updated = [...current, c._id];
+                            }
+                            setNewNewsForm({
+                              ...newNewsForm,
+                              categories: updated,
+                              category: updated[0] || '',
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            isSelected
+                              ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 font-bold'
+                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                          <span>{c.name}</span>
+                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Dateline / Reporting Location</label>
+                  <input
+                    type="text"
+                    value={newNewsForm.location}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, location: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2642,16 +2947,51 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1 flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5 text-red-500" /> Video URL (YouTube / MP4)
+                    <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Video className="w-3.5 h-3.5 text-red-500" /> Video Coverage (Upload or URL)
+                      </span>
+                      {newNewsForm.videoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewNewsForm({ ...newNewsForm, videoUrl: '' })}
+                          className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                        >
+                          ✕ Remove Video
+                        </button>
+                      )}
                     </label>
-                    <input
-                      type="text"
-                      value={newNewsForm.videoUrl}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, videoUrl: e.target.value })}
-                      placeholder="https://youtube.com/..."
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
-                    />
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${
+                          videoUploading
+                            ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                            : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-200'
+                        }`}>
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{videoUploading ? 'Uploading Video...' : 'Upload Video'}</span>
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                            disabled={videoUploading}
+                            onChange={(e) => handleVideoUpload(e, false)}
+                            className="hidden"
+                          />
+                        </label>
+                        <input
+                          type="text"
+                          value={newNewsForm.videoUrl}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, videoUrl: e.target.value })}
+                          placeholder="or paste YouTube / MP4 URL"
+                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                        />
+                      </div>
+                      {newNewsForm.videoUrl && (
+                        <div className="p-1.5 px-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
+                          <span className="truncate max-w-[280px]">✓ Video Attached: {newNewsForm.videoUrl}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2935,9 +3275,17 @@ export default function AdminDashboard() {
               <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-red-600 text-white">
-                      {viewReportModalStory.category?.name || 'News Story'}
-                    </span>
+                    {Array.isArray(viewReportModalStory.categories) && viewReportModalStory.categories.length > 0 ? (
+                      viewReportModalStory.categories.map((c, idx) => (
+                        <span key={c._id || idx} className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-red-600 text-white">
+                          {c.name || c.nameHindi || 'News'}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider bg-red-600 text-white">
+                        {viewReportModalStory.category?.name || viewReportModalStory.categoryName || 'News Story'}
+                      </span>
+                    )}
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider ${
                         viewReportModalStory.status === 'published'
@@ -3083,7 +3431,7 @@ export default function AdminDashboard() {
                       ></iframe>
                     ) : (
                       <video
-                        src={viewReportModalStory.videoUrl}
+                        src={getMediaUrl(viewReportModalStory.videoUrl)}
                         controls
                         className="w-full h-full object-contain"
                       />
@@ -3313,36 +3661,66 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                {/* Category & Location */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                      Category *
+                {/* Categories Pill Selector */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
                     </label>
-                    <select
-                      value={editNewsForm.category}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, category: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                    >
-                      {categories.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name} ({c.nameHindi})
-                        </option>
-                      ))}
-                    </select>
+                    <span className="text-[11px] text-slate-400">
+                      {(editNewsForm.categories || []).length} selected
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                      Reporting Location
-                    </label>
-                    <input
-                      type="text"
-                      value={editNewsForm.location}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, location: e.target.value })}
-                      placeholder="e.g. Kishanganj, Purnea, Patna"
-                      className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                    />
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                    {categories.map((c) => {
+                      const isSelected = (editNewsForm.categories || []).includes(c._id) || (editNewsForm.categories?.length === 0 && editNewsForm.category === c._id);
+                      return (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => {
+                            const current = (editNewsForm.categories && editNewsForm.categories.length > 0)
+                              ? editNewsForm.categories
+                              : (editNewsForm.category ? [editNewsForm.category] : []);
+                            let updated;
+                            if (current.includes(c._id)) {
+                              updated = current.filter((id) => id !== c._id);
+                            } else {
+                              updated = [...current, c._id];
+                            }
+                            setEditNewsForm({
+                              ...editNewsForm,
+                              categories: updated,
+                              category: updated[0] || '',
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            isSelected
+                              ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400 font-bold'
+                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                          <span>{c.name}</span>
+                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
+
+                {/* Reporting Location */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                    Reporting Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editNewsForm.location}
+                    onChange={(e) => setEditNewsForm({ ...editNewsForm, location: e.target.value })}
+                    placeholder="e.g. Kishanganj, Purnea, Patna"
+                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
                 </div>
 
                 {/* Thumbnail Image (Direct Upload + URL input + Preview) */}
@@ -3377,18 +3755,56 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Video URL */}
+                {/* Video Coverage (Upload or URL) */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Video Report URL (Optional YouTube / MP4)
-                  </label>
-                  <input
-                    type="text"
-                    value={editNewsForm.videoUrl}
-                    onChange={(e) => setEditNewsForm({ ...editNewsForm, videoUrl: e.target.value })}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-amber-500" />
+                      Video Report (Upload File or URL)
+                    </label>
+                    {editNewsForm.videoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditNewsForm({ ...editNewsForm, videoUrl: '' })}
+                        className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                      >
+                        ✕ Remove Video
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className={`cursor-pointer px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${
+                        editVideoUploading
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-amber-950/80 hover:bg-amber-900 border-amber-800/80 text-amber-200'
+                      }`}>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{editVideoUploading ? 'Uploading Video...' : 'Upload Video File'}</span>
+                        <input
+                          type="file"
+                          accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                          disabled={editVideoUploading}
+                          onChange={(e) => handleVideoUpload(e, true)}
+                          className="hidden"
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={editNewsForm.videoUrl}
+                        onChange={(e) => setEditNewsForm({ ...editNewsForm, videoUrl: e.target.value })}
+                        placeholder="or paste YouTube / MP4 URL"
+                        className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                      />
+                    </div>
+
+                    {editNewsForm.videoUrl && (
+                      <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
+                        <span className="truncate max-w-[320px]">✓ Video Attached: {editNewsForm.videoUrl}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Content (with Markdown Toolbar & Live Preview Toggle) */}

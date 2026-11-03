@@ -622,8 +622,24 @@ export default function MembershipManagementSection() {
             <div className="space-y-3 max-h-96 overflow-y-auto text-xs">
               {(!viewingHistoryMember.statusHistory ||
                 viewingHistoryMember.statusHistory.length === 0) ? (
-                <div className="p-6 text-center text-slate-500">
-                  No previous status transitions recorded for this member.
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">
+                      Initial Enrollment &rarr;{' '}
+                      <strong className="text-emerald-400 capitalize">
+                        {viewingHistoryMember.status || 'Active'}
+                      </strong>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {new Date(viewingHistoryMember.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-slate-300 text-[11px]">
+                    <strong>Remarks:</strong> Registered Member enrolled with ID: {viewingHistoryMember.idCardNumber || 'Pending'} ({viewingHistoryMember.committeeLevel || 'General'} Committee)
+                  </p>
+                  <span className="text-[10px] text-slate-500 block">
+                    Recorded by: Institutional Membership Administration
+                  </span>
                 </div>
               ) : (
                 viewingHistoryMember.statusHistory.map((hist, idx) => (

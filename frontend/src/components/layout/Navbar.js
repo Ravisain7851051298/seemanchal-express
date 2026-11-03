@@ -15,6 +15,7 @@ import {
   X,
   Flame,
   LogOut,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -26,16 +27,24 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [breakingNews, setBreakingNews] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [isVisible, setIsVisible] = useState(true);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Fetch breaking news
+  // Fetch breaking news and active categories sorted by priority
   useEffect(() => {
     const fetchNavbarData = async () => {
       try {
-        const newsRes = await api.get('/news/breaking');
-        if (newsRes.data.success) {
-          setBreakingNews(newsRes.data.news);
+        const [newsRes, catRes] = await Promise.allSettled([
+          api.get('/news/breaking'),
+          api.get('/categories'),
+        ]);
+
+        if (newsRes.status === 'fulfilled' && newsRes.value.data.success) {
+          setBreakingNews(newsRes.value.data.news);
+        }
+        if (catRes.status === 'fulfilled' && catRes.value.data.success) {
+          setCategories(catRes.value.data.categories || []);
         }
       } catch (err) {
         console.error('Navbar data fetch error:', err);
@@ -113,6 +122,21 @@ export default function Navbar() {
     day: 'numeric',
   }).format(new Date());
 
+  const defaultNavCategories = [
+    { name: 'Seemanchal Special', slug: 'seemanchal-special' },
+    { name: 'Bihar State', slug: 'bihar' },
+    { name: 'National', slug: 'national' },
+    { name: 'Politics', slug: 'politics' },
+    { name: 'Crime', slug: 'crime' },
+    { name: 'Education', slug: 'education' },
+    { name: 'Sports', slug: 'sports' },
+  ];
+
+  const displayCategories = categories.length > 0 ? categories : defaultNavCategories;
+  const visibleCategories = displayCategories.slice(0, 7);
+  const overflowCategories = displayCategories.slice(7);
+  const [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
+
   return (
     <header
       className={`w-full bg-white border-b border-slate-200 sticky top-0 z-50 transition-transform duration-300 ease-in-out will-change-transform ${isVisible ? 'translate-y-0' : '-translate-y-full'
@@ -145,6 +169,24 @@ export default function Navbar() {
             >
               <Mail className="w-3 h-3 text-sky-400" />
               <span>mail@seemanchalexpress.in</span>
+            </a>
+
+            {/* Google News Preference Link */}
+            <span className="text-slate-600 hidden md:inline">|</span>
+            <a
+              href="https://www.google.com/preferences/source?q=seemanchalexpress.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-amber-300 hover:text-white text-[11px] font-semibold border border-white/10 transition-colors"
+              title="Google पर Seemanchal Express को प्राथमिकता दें"
+            >
+              <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Google पर प्राथमिकता दें</span>
             </a>
 
             {/* Google Language Translation Feature */}
@@ -253,94 +295,107 @@ export default function Navbar() {
       {/* 3. Primary Navigation Bar */}
       <nav className="bg-red-700 text-white font-medium text-sm hidden lg:block shadow-inner">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between">
-          <ul className="flex items-center flex-wrap gap-0.5">
+          <ul className="flex items-center flex-nowrap whitespace-nowrap gap-0.5 overflow-x-visible">
             <li>
               <Link
                 href="/"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors font-semibold"
+                className="px-3 py-2.5 inline-block hover:bg-red-800 transition-colors font-semibold"
               >
                 Home
               </Link>
             </li>
-            <li>
-              <Link
-                href="/category/seemanchal-special"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors bg-red-800 font-bold text-amber-200"
+            {visibleCategories.map((cat) => (
+              <li key={cat._id || cat.slug}>
+                <Link
+                  href={`/category/${cat.slug}`}
+                  className={`px-3 py-2.5 inline-block hover:bg-red-800 transition-colors ${
+                    cat.slug === 'seemanchal-special'
+                      ? 'bg-red-800 font-bold text-amber-200'
+                      : ''
+                  }`}
+                >
+                  {cat.name}
+                </Link>
+              </li>
+            ))}
+
+            {/* "More ▾" Dropdown for extra categories & institutional links */}
+            <li className="relative group">
+              <button
+                type="button"
+                onClick={() => setMoreDropdownOpen(!moreDropdownOpen)}
+                className="px-3.5 py-2.5 inline-flex items-center gap-1 hover:bg-red-800 transition-colors font-bold text-amber-200"
               >
-                Seemanchal Special
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/bihar"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Bihar State
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/national"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                National
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/politics"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Politics
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/crime"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Crime
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/education"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Education
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/category/sports"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Sports
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/team"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors bg-amber-500 text-slate-900 font-bold"
-              >
-                Executive Team
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/about"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                About Us
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/contact"
-                className="px-3.5 py-2.5 inline-block hover:bg-red-800 transition-colors"
-              >
-                Contact Us
-              </Link>
+                <span>More</span>
+                <ChevronDown className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-200" />
+              </button>
+
+              {/* Dropdown Menu (Hover on desktop or click) */}
+              <div className={`absolute left-0 top-full ${moreDropdownOpen ? 'block' : 'hidden'} group-hover:block hover:block z-50 pt-1`}>
+                <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 min-w-[210px] text-xs divide-y divide-slate-800 backdrop-blur-md">
+                  {/* Overflow Categories */}
+                  {overflowCategories.length > 0 && (
+                    <div className="py-1">
+                      <span className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                        More Categories
+                      </span>
+                      {overflowCategories.map((cat) => (
+                        <Link
+                          key={cat._id || cat.slug}
+                          href={`/category/${cat.slug}`}
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className="px-3 py-1.5 text-slate-200 hover:text-white hover:bg-red-700/80 block transition-colors font-medium"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Institutional Pages */}
+                  <div className="py-1">
+                    <span className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Organization & Network
+                    </span>
+                    <Link
+                      href="/team"
+                      onClick={() => setMoreDropdownOpen(false)}
+                      className="px-3 py-1.5 text-amber-300 hover:text-white hover:bg-red-700/80 flex items-center justify-between transition-colors font-bold"
+                    >
+                      <span>Executive Team</span>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono">Core</span>
+                    </Link>
+                    <Link
+                      href="/about"
+                      onClick={() => setMoreDropdownOpen(false)}
+                      className="px-3 py-1.5 text-slate-200 hover:text-white hover:bg-red-700/80 block transition-colors"
+                    >
+                      About Us
+                    </Link>
+                    <Link
+                      href="/contact"
+                      onClick={() => setMoreDropdownOpen(false)}
+                      className="px-3 py-1.5 text-slate-200 hover:text-white hover:bg-red-700/80 block transition-colors"
+                    >
+                      Contact Us
+                    </Link>
+                    <Link
+                      href="/complaint"
+                      onClick={() => setMoreDropdownOpen(false)}
+                      className="px-3 py-1.5 text-slate-200 hover:text-white hover:bg-red-700/80 block transition-colors"
+                    >
+                      Grievance Cell (शिकायत)
+                    </Link>
+                    <Link
+                      href="/legal"
+                      onClick={() => setMoreDropdownOpen(false)}
+                      className="px-3 py-1.5 text-slate-200 hover:text-white hover:bg-red-700/80 block transition-colors"
+                    >
+                      Legal & Policies
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </li>
           </ul>
 
@@ -405,59 +460,22 @@ export default function Navbar() {
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
+              className="py-2 border-b border-slate-800 hover:text-red-400 font-bold"
             >
               Home
             </Link>
-            <Link
-              href="/category/seemanchal-special"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 text-amber-300 font-bold"
-            >
-              Seemanchal Special
-            </Link>
-            <Link
-              href="/category/bihar"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              Bihar State
-            </Link>
-            <Link
-              href="/category/national"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              National
-            </Link>
-            <Link
-              href="/category/politics"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              Politics
-            </Link>
-            <Link
-              href="/category/crime"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              Crime
-            </Link>
-            <Link
-              href="/category/education"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              Education
-            </Link>
-            <Link
-              href="/category/sports"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-slate-800 hover:text-red-400"
-            >
-              Sports
-            </Link>
+            {displayCategories.map((cat) => (
+              <Link
+                key={cat._id || cat.slug}
+                href={`/category/${cat.slug}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`py-2 border-b border-slate-800 hover:text-red-400 ${
+                  cat.slug === 'seemanchal-special' ? 'text-amber-300 font-bold' : ''
+                }`}
+              >
+                {cat.name}
+              </Link>
+            ))}
             <Link
               href="/team"
               onClick={() => setMobileMenuOpen(false)}

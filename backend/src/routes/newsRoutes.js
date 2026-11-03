@@ -17,20 +17,27 @@ const slugify = (text) => {
 };
 
 // @route   GET /api/news
+// @route   GET /api/news
 // @desc    Get all published news with filters & pagination
 router.get('/', async (req, res) => {
   try {
     const { category, search, tag, isBreaking, isFeatured, isTrending, page = 1, limit = 12 } = req.query;
     const query = { status: 'published' };
 
+    let catFilter = null;
     if (category) {
       // Check if category is slug or ID
-      if (category.match(/^[0-9a-fA-F]{24}$/)) {
-        query.category = category;
-      } else {
+      let catId = category;
+      if (!category.match(/^[0-9a-fA-F]{24}$/)) {
         const cat = await Category.findOne({ slug: category });
-        if (cat) query.category = cat._id;
+        if (cat) catId = cat._id;
       }
+      catFilter = {
+        $or: [
+          { category: catId },
+          { categories: catId },
+        ],
+      };
     }
 
     if (isBreaking === 'true') {
@@ -62,6 +69,7 @@ router.get('/', async (req, res) => {
         { location: { $regex: escapedFullSearch, $options: 'i' } },
         { tags: { $regex: escapedFullSearch, $options: 'i' } },
         { categoryName: { $regex: escapedFullSearch, $options: 'i' } },
+        { categoryNames: { $regex: escapedFullSearch, $options: 'i' } },
         { authorName: { $regex: escapedFullSearch, $options: 'i' } },
       ];
 
@@ -80,10 +88,20 @@ router.get('/', async (req, res) => {
       query.$or = conditions;
     }
 
+    if (catFilter) {
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, catFilter];
+        delete query.$or;
+      } else {
+        query.$or = catFilter.$or;
+      }
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await News.countDocuments(query);
     const news = await News.find(query)
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .populate('author', 'name photo role assignedDesignation')
       .sort({ publishedAt: -1, createdAt: -1 })
       .skip(skip)
@@ -96,6 +114,11 @@ router.get('/', async (req, res) => {
       let matchedCategories = [];
       news.forEach((n) => {
         if (n.category && n.category._id) matchedCategories.push(n.category._id);
+        if (Array.isArray(n.categories)) {
+          n.categories.forEach((c) => {
+            if (c._id) matchedCategories.push(c._id);
+          });
+        }
       });
 
       const similarQuery = {
@@ -104,11 +127,15 @@ router.get('/', async (req, res) => {
       };
 
       if (matchedCategories.length > 0) {
-        similarQuery.category = { $in: matchedCategories };
+        similarQuery.$or = [
+          { category: { $in: matchedCategories } },
+          { categories: { $in: matchedCategories } },
+        ];
       }
 
       similarNews = await News.find(similarQuery)
         .populate('category', 'name nameHindi slug')
+        .populate('categories', 'name nameHindi slug')
         .populate('author', 'name photo role assignedDesignation')
         .sort({ views: -1, publishedAt: -1 })
         .limit(6);
@@ -121,6 +148,7 @@ router.get('/', async (req, res) => {
           _id: { $nin: moreIds },
         })
           .populate('category', 'name nameHindi slug')
+          .populate('categories', 'name nameHindi slug')
           .populate('author', 'name photo role assignedDesignation')
           .sort({ publishedAt: -1 })
           .limit(6 - similarNews.length);
@@ -162,6 +190,7 @@ router.get('/featured', async (req, res) => {
   try {
     const news = await News.find({ status: 'published', isFeatured: true })
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .populate('author', 'name photo')
       .sort({ publishedAt: -1 })
       .limit(10);
@@ -177,6 +206,7 @@ router.get('/trending', async (req, res) => {
   try {
     let news = await News.find({ status: 'published', isTrending: true })
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .populate('author', 'name photo')
       .sort({ publishedAt: -1 })
       .limit(12);
@@ -189,6 +219,7 @@ router.get('/trending', async (req, res) => {
         _id: { $nin: existingIds },
       })
         .populate('category', 'name nameHindi slug')
+        .populate('categories', 'name nameHindi slug')
         .populate('author', 'name photo')
         .sort({ views: -1, publishedAt: -1 })
         .limit(12 - news.length);
@@ -206,6 +237,7 @@ router.get('/reporter/my-submissions', protect, authorize('reporter', 'admin'), 
   try {
     const news = await News.find({ author: req.user._id })
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .sort({ createdAt: -1 });
     res.json({ success: true, count: news.length, news });
   } catch (err) {
@@ -219,6 +251,7 @@ router.get('/:slug', async (req, res) => {
   try {
     const news = await News.findOne({ slug: req.params.slug })
       .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
       .populate('author', 'name photo role assignedDesignation bio');
 
     if (!news) {
@@ -229,13 +262,32 @@ router.get('/:slug', async (req, res) => {
     news.views += 1;
     await news.save();
 
-    // Related news in same category
-    const relatedNews = await News.find({
-      category: news.category._id,
+    // Related news in same categories
+    const catIds = [];
+    if (news.category && news.category._id) catIds.push(news.category._id);
+    if (Array.isArray(news.categories)) {
+      news.categories.forEach((c) => {
+        if (c && c._id && !catIds.some((id) => id.toString() === c._id.toString())) {
+          catIds.push(c._id);
+        }
+      });
+    }
+
+    const relatedQuery = {
       _id: { $ne: news._id },
       status: 'published',
-    })
-      .select('title slug thumbnail publishedAt location views')
+    };
+    if (catIds.length > 0) {
+      relatedQuery.$or = [
+        { category: { $in: catIds } },
+        { categories: { $in: catIds } },
+      ];
+    }
+
+    const relatedNews = await News.find(relatedQuery)
+      .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
+      .select('title slug thumbnail publishedAt location views categories category categoryName')
       .limit(4);
 
     res.json({ success: true, news, relatedNews });
@@ -252,6 +304,7 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       title,
       subtitle,
       category,
+      categories: rawCategories,
       content,
       thumbnail,
       videoUrl,
@@ -263,14 +316,25 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       isTrending,
     } = req.body;
 
-    if (!title || !category || !content) {
+    // Collect all category IDs (support array or single category string)
+    let categoryIds = [];
+    if (Array.isArray(rawCategories) && rawCategories.length > 0) {
+      categoryIds = rawCategories.filter(Boolean);
+    } else if (category) {
+      categoryIds = [category];
+    }
+
+    if (!title || categoryIds.length === 0 || !content) {
       return res.status(400).json({ success: false, message: 'Title, category, and content are required' });
     }
 
-    const catDoc = await Category.findById(category);
-    if (!catDoc) {
+    const categoryDocs = await Category.find({ _id: { $in: categoryIds } });
+    if (!categoryDocs || categoryDocs.length === 0) {
       return res.status(400).json({ success: false, message: 'Invalid category specified' });
     }
+
+    const primaryCat = categoryDocs[0];
+    const categoryNames = categoryDocs.map((c) => c.name);
 
     // Generate unique slug
     let baseSlug = slugify(title) || 'news';
@@ -287,8 +351,10 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       title,
       slug,
       subtitle: subtitle || '',
-      category,
-      categoryName: catDoc.name,
+      category: primaryCat._id,
+      categoryName: primaryCat.name,
+      categories: categoryDocs.map((c) => c._id),
+      categoryNames,
       content,
       thumbnail: thumbnail || '/uploads/default-news.jpg',
       videoUrl: videoUrl || '',
@@ -304,10 +370,15 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       publishedAt: status === 'published' ? new Date() : null,
     });
 
+    const populatedNews = await News.findById(news._id)
+      .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
+      .populate('author', 'name photo role assignedDesignation');
+
     res.status(201).json({
       success: true,
       message: isAdmin ? 'News published successfully' : 'News submitted for editorial review',
-      news,
+      news: populatedNews,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -328,10 +399,30 @@ router.put('/:id', protect, authorize('admin', 'reporter'), async (req, res) => 
       return res.status(403).json({ success: false, message: 'Not authorized to edit this article' });
     }
 
-    const fields = ['title', 'subtitle', 'category', 'content', 'thumbnail', 'videoUrl', 'images', 'tags', 'location'];
+    const fields = ['title', 'subtitle', 'content', 'thumbnail', 'videoUrl', 'images', 'tags', 'location'];
     fields.forEach((field) => {
       if (req.body[field] !== undefined) news[field] = req.body[field];
     });
+
+    // Handle categories update (support categories array or single category)
+    if (req.body.categories !== undefined || req.body.category !== undefined) {
+      let categoryIds = [];
+      if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
+        categoryIds = req.body.categories.filter(Boolean);
+      } else if (req.body.category) {
+        categoryIds = [req.body.category];
+      }
+
+      if (categoryIds.length > 0) {
+        const categoryDocs = await Category.find({ _id: { $in: categoryIds } });
+        if (categoryDocs && categoryDocs.length > 0) {
+          news.category = categoryDocs[0]._id;
+          news.categoryName = categoryDocs[0].name;
+          news.categories = categoryDocs.map((c) => c._id);
+          news.categoryNames = categoryDocs.map((c) => c.name);
+        }
+      }
+    }
 
     // If reporter edits a rejected article, reset status to pending for re-review!
     if (req.user.role === 'reporter' && news.status === 'rejected') {
@@ -353,7 +444,13 @@ router.put('/:id', protect, authorize('admin', 'reporter'), async (req, res) => 
     }
 
     await news.save();
-    res.json({ success: true, message: 'News updated successfully', news });
+
+    const updatedNews = await News.findById(news._id)
+      .populate('category', 'name nameHindi slug')
+      .populate('categories', 'name nameHindi slug')
+      .populate('author', 'name photo role assignedDesignation');
+
+    res.json({ success: true, message: 'News updated successfully', news: updatedNews });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

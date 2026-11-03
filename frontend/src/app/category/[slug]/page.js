@@ -22,12 +22,18 @@ export default function CategoryPage() {
   useEffect(() => {
     const fetchCategoryNews = async () => {
       try {
-        const res = await api.get(`/news?category=${slug}&limit=20`);
-        if (res.data.success) {
-          setNewsList(res.data.news);
-          if (res.data.news.length > 0 && res.data.news[0].categoryName) {
-            setCategoryName(res.data.news[0].categoryName);
-          }
+        const [newsRes, catRes] = await Promise.allSettled([
+          api.get(`/news?category=${slug}&limit=20`),
+          api.get('/categories'),
+        ]);
+
+        if (catRes.status === 'fulfilled' && catRes.value.data?.success) {
+          const matched = catRes.value.data.categories.find((c) => c.slug === slug);
+          if (matched) setCategoryName(matched.name);
+        }
+
+        if (newsRes.status === 'fulfilled' && newsRes.value.data?.success) {
+          setNewsList(newsRes.value.data.news || []);
         }
       } catch (err) {
         console.error('Failed to load category news:', err);
@@ -88,9 +94,19 @@ export default function CategoryPage() {
                   </span>
                 </div>
                 <div className="p-5 flex flex-col flex-grow">
-                  <span className="text-[11px] font-bold text-red-600 uppercase mb-1">
-                    {item.categoryName || categoryName}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {Array.isArray(item.categories) && item.categories.length > 0 ? (
+                      item.categories.map((c, idx) => (
+                        <span key={c._id || idx} className="text-[10px] font-bold text-red-600 uppercase bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                          {c.name || c.nameHindi}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] font-bold text-red-600 uppercase">
+                        {item.categoryName || categoryName}
+                      </span>
+                    )}
+                  </div>
                   <Link href={`/news/${item.slug}`} className="flex-grow">
                     <h3 className="text-base font-bold text-slate-900 group-hover:text-red-600 transition-colors line-clamp-2">
                       {item.title}

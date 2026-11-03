@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Phone,
   Mail,
@@ -8,7 +8,18 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  Clock,
+  MessageCircle,
 } from 'lucide-react';
+import {
+  FacebookIcon,
+  TwitterIcon,
+  InstagramIcon,
+  YoutubeIcon,
+  TelegramIcon,
+  WhatsappIcon,
+  LinkedinIcon,
+} from '../../components/common/SocialIcons';
 import api from '../../lib/api';
 
 export default function ContactPage() {
@@ -22,6 +33,32 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    api
+      .get('/settings')
+      .then((res) => {
+        if (res.data?.success) {
+          setSettings(res.data.settings);
+        }
+      })
+      .catch((err) => {
+        console.error('Contact page settings fetch error:', err);
+      });
+  }, []);
+
+  const contact = settings?.contactUs || {
+    headquartersAddress: 'F 65, Shaheen Bagh, Okhla, New Delhi-110025, India',
+    phone: '+91 9871023184',
+    alternatePhone: '',
+    email: 'mail@seemanchalexpress.in',
+    supportEmail: 'editor@seemanchalexpress.in',
+    whatsappNumber: '+91 9871023184',
+    officeHours: 'Monday - Saturday: 9:00 AM - 8:00 PM IST',
+  };
+
+  const socialLinks = settings?.socialLinks || {};
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -80,8 +117,7 @@ export default function ContactPage() {
                   <div>
                     <strong className="text-white text-sm block mb-1">Head Office Address</strong>
                     <p className="leading-relaxed">
-                      F 65, Shaheen Bagh, Okhla,<br />
-                      New Delhi-110025, India
+                      {contact.headquartersAddress}
                     </p>
                   </div>
                 </div>
@@ -92,12 +128,40 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <strong className="text-white text-sm block mb-1">Helpline & Editorial Desk</strong>
-                    <a href="tel:9871023184" className="text-emerald-400 hover:underline font-bold text-sm block">
-                      +91 9871023184
+                    <a href={`tel:${contact.phone}`} className="text-emerald-400 hover:underline font-bold text-sm block">
+                      {contact.phone}
                     </a>
-                    <span className="text-slate-400 text-[11px]">Monday - Saturday: 9:00 AM - 8:00 PM IST</span>
+                    {contact.alternatePhone && (
+                      <a href={`tel:${contact.alternatePhone}`} className="text-slate-400 hover:underline text-xs block mt-0.5">
+                        Alt: {contact.alternatePhone}
+                      </a>
+                    )}
+                    <span className="text-slate-400 text-[11px] flex items-center gap-1 mt-1">
+                      <Clock className="w-3 h-3 text-amber-400" />
+                      {contact.officeHours}
+                    </span>
                   </div>
                 </div>
+
+                {contact.whatsappNumber && (
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                      <MessageCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <strong className="text-white text-sm block mb-1">WhatsApp Desk</strong>
+                      <a
+                        href={`https://wa.me/${contact.whatsappNumber.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-300 hover:underline font-bold text-sm block"
+                      >
+                        {contact.whatsappNumber}
+                      </a>
+                      <span className="text-slate-400 text-[11px]">Direct news tips & instant inquiries</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-lg bg-sky-600/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/30">
@@ -105,11 +169,101 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <strong className="text-white text-sm block mb-1">Official Email</strong>
-                    <a href="mailto:mail@seemanchalexpress.in" className="text-sky-400 hover:underline font-medium block">
-                      mail@seemanchalexpress.in
+                    <a href={`mailto:${contact.email}`} className="text-sky-400 hover:underline font-medium block">
+                      {contact.email}
                     </a>
-                    <span className="text-slate-400 text-[11px]">For editorial and administrative inquiries</span>
+                    {contact.supportEmail && (
+                      <a href={`mailto:${contact.supportEmail}`} className="text-slate-400 hover:underline text-[11px] block mt-0.5">
+                        Editor: {contact.supportEmail}
+                      </a>
+                    )}
                   </div>
+                </div>
+              </div>
+
+              {/* Social Channels in Contact page */}
+              <div className="mt-6 pt-5 border-t border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2.5">
+                  Follow Official Handles:
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {socialLinks.facebook && (
+                    <a
+                      href={socialLinks.facebook}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-colors"
+                      title="Facebook"
+                    >
+                      <FacebookIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.twitter && (
+                    <a
+                      href={socialLinks.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-black text-slate-300 hover:text-white transition-colors"
+                      title="Twitter / X"
+                    >
+                      <TwitterIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.instagram && (
+                    <a
+                      href={socialLinks.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-pink-600 text-slate-300 hover:text-white transition-colors"
+                      title="Instagram"
+                    >
+                      <InstagramIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.youtube && (
+                    <a
+                      href={socialLinks.youtube}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition-colors"
+                      title="YouTube"
+                    >
+                      <YoutubeIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.telegram && (
+                    <a
+                      href={socialLinks.telegram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-sky-500 text-slate-300 hover:text-white transition-colors"
+                      title="Telegram"
+                    >
+                      <TelegramIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.whatsapp && (
+                    <a
+                      href={socialLinks.whatsapp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors"
+                      title="WhatsApp Channel"
+                    >
+                      <WhatsappIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.linkedin && (
+                    <a
+                      href={socialLinks.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-slate-800 hover:bg-blue-700 text-slate-300 hover:text-white transition-colors"
+                      title="LinkedIn"
+                    >
+                      <LinkedinIcon className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -156,13 +310,11 @@ export default function ContactPage() {
                     <input
                       type="text"
                       name="name"
-                      id="name"
-                      autoComplete="name"
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      placeholder="Your full name"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
+                      placeholder="Your Full Name"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
                     />
                   </div>
                   <div>
@@ -172,13 +324,11 @@ export default function ContactPage() {
                     <input
                       type="email"
                       name="email"
-                      id="email"
-                      autoComplete="email"
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      placeholder="example@mail.com"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
+                      placeholder="your.email@example.com"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -186,17 +336,15 @@ export default function ContactPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Phone Number
+                      Phone Number (Optional)
                     </label>
                     <input
                       type="tel"
                       name="phone"
-                      id="phone"
-                      autoComplete="tel"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="10-digit mobile number"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
+                      placeholder="+91 9876543210"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
                     />
                   </div>
                   <div>
@@ -209,34 +357,34 @@ export default function ContactPage() {
                       required
                       value={formData.subject}
                       onChange={handleChange}
-                      placeholder="Message subject"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
+                      placeholder="Brief topic of inquiry"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Your Message *
+                    Your Message / Inquiry Details *
                   </label>
                   <textarea
                     name="message"
+                    rows="6"
                     required
-                    rows={5}
                     value={formData.message}
                     onChange={handleChange}
-                    placeholder="Write your detailed inquiry or news tip here..."
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
-                  />
+                    placeholder="Write your complete message, feedback or inquiry here..."
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white"
+                  ></textarea>
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:opacity-50"
+                  className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  {loading ? 'Sending message...' : 'Send Message'}
+                  {loading ? 'Transmitting Message...' : 'Send Message'}
                 </button>
               </form>
             </div>

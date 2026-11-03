@@ -27,6 +27,7 @@ import {
   Copy,
   Check,
   Eye,
+  EyeOff,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -64,6 +65,7 @@ export default function MemberDashboard() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [showMemberPasswords, setShowMemberPasswords] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ text: '', type: '' });
 
@@ -844,46 +846,88 @@ export default function MemberDashboard() {
               <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Current Password *</label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    autoComplete="current-password"
-                    required
-                    value={passwords.currentPassword}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, currentPassword: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showMemberPasswords ? 'text' : 'password'}
+                      name="currentPassword"
+                      autoComplete="current-password"
+                      required
+                      value={passwords.currentPassword}
+                      onChange={(e) =>
+                        setPasswords({ ...passwords, currentPassword: e.target.value })
+                      }
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberPasswords(!showMemberPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showMemberPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showMemberPasswords ? (
+                        <EyeOff className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">New Password *</label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    autoComplete="new-password"
-                    required
-                    value={passwords.newPassword}
-                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                    placeholder="Minimum 6 characters"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showMemberPasswords ? 'text' : 'password'}
+                      name="newPassword"
+                      autoComplete="new-password"
+                      required
+                      value={passwords.newPassword}
+                      onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                      placeholder="Minimum 6 characters"
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberPasswords(!showMemberPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showMemberPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showMemberPasswords ? (
+                        <EyeOff className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-300 mb-1">Confirm New Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    autoComplete="new-password"
-                    required
-                    value={passwords.confirmPassword}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, confirmPassword: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showMemberPasswords ? 'text' : 'password'}
+                      name="confirmPassword"
+                      autoComplete="new-password"
+                      required
+                      value={passwords.confirmPassword}
+                      onChange={(e) =>
+                        setPasswords({ ...passwords, confirmPassword: e.target.value })
+                      }
+                      className="w-full pl-3 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberPasswords(!showMemberPasswords)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-white p-0.5"
+                      title={showMemberPasswords ? 'Hide passwords' : 'View passwords'}
+                    >
+                      {showMemberPasswords ? (
+                        <EyeOff className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <button

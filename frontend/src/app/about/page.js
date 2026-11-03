@@ -1,19 +1,54 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Award,
   Shield,
   Target,
-  Users,
   MapPin,
   Phone,
   Mail,
-  CheckCircle,
+  BookOpen,
 } from 'lucide-react';
+import api from '../../lib/api';
+import MarkdownView from '../../components/common/MarkdownView';
 
 export default function AboutPage() {
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get('/settings')
+      .then((res) => {
+        if (res.data?.success) {
+          setSettings(res.data.settings);
+        }
+      })
+      .catch((err) => {
+        console.error('About page settings fetch error:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const about = settings?.aboutUs || {
+    title: 'Seemanchal Express (सीमांचल एक्सप्रेस)',
+    subtitle: 'Voice of the People | सच की निर्भीक आवाज',
+    mission:
+      'To bring the pressing challenges of Seemanchal (Kishanganj, Araria, Purnea, and Katihar) — including flood control, quality education, healthcare infrastructure, and rural economic empowerment — to the forefront of national policy, driving positive democratic change.',
+    vision:
+      'Truth, impartiality, fearless reporting without political bias, amplifying the voices of marginalized communities, and safeguarding constitutional and democratic values represent the unwavering pillars of Seemanchal Express.',
+    detailedContent: '',
+  };
+
+  const contact = settings?.contactUs || {
+    headquartersAddress: 'F 65, Shaheen Bagh, Okhla, New Delhi-110025, India',
+    phone: '+91 9871023184',
+    email: 'mail@seemanchalexpress.in',
+  };
+
   return (
     <div className="bg-slate-50 min-h-screen py-10">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -24,10 +59,10 @@ export default function AboutPage() {
               About Organization
             </span>
             <h1 className="text-3xl sm:text-5xl font-black text-white mt-3 mb-4">
-              Seemanchal Express (सीमांचल एक्सप्रेस)
+              {about.title}
             </h1>
             <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-3xl">
-              &ldquo;Voice of the People | सच की निर्भीक आवाज&rdquo; — A pioneering digital news publication and grassroots organization committed to public integrity, social justice, and fearless independent journalism across Seemanchal and India.
+              &ldquo;{about.subtitle}&rdquo; — A pioneering digital news publication and grassroots organization committed to public integrity, social justice, and fearless independent journalism across Seemanchal and India.
             </p>
           </div>
           <img
@@ -43,9 +78,9 @@ export default function AboutPage() {
             <div className="w-12 h-12 rounded-lg bg-red-100 text-red-600 flex items-center justify-center mb-4">
               <Target className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Our Mission</h3>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Our Mission (हमारा उद्देश्य)</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              To bring the pressing challenges of Seemanchal (Kishanganj, Araria, Purnea, and Katihar) — including flood control, quality education, healthcare infrastructure, and rural economic empowerment — to the forefront of national policy, driving positive democratic change.
+              {about.mission}
             </p>
           </div>
 
@@ -53,12 +88,25 @@ export default function AboutPage() {
             <div className="w-12 h-12 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
               <Shield className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Core Principles</h3>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Core Principles & Vision (मार्गदर्शक सिद्धांत)</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Truth, impartiality, fearless reporting without political bias, amplifying the voices of marginalized communities, and safeguarding constitutional and democratic values represent the unwavering pillars of Seemanchal Express.
+              {about.vision}
             </p>
           </div>
         </div>
+
+        {/* Detailed Editorial Story / Content if configured */}
+        {about.detailedContent && (
+          <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm mb-10">
+            <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <BookOpen className="w-5 h-5 text-red-600" />
+              <span>Editorial Philosophy & Community Roadmap</span>
+            </h3>
+            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              <MarkdownView content={about.detailedContent} />
+            </div>
+          </div>
+        )}
 
         {/* Structure Overview */}
         <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm mb-10">
@@ -114,22 +162,25 @@ export default function AboutPage() {
               <MapPin className="w-5 h-5 text-red-500 shrink-0" />
               <div>
                 <strong className="text-white block mb-1">Headquarters Address:</strong>
-                F 65, Shaheen Bagh, Okhla,<br />
-                New Delhi-110025, India
+                {contact.headquartersAddress}
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Phone className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
                 <strong className="text-white block mb-1">Phone Helpline:</strong>
-                <a href="tel:9871023184" className="hover:text-white">+91 9871023184</a>
+                <a href={`tel:${contact.phone}`} className="hover:text-white font-semibold">
+                  {contact.phone}
+                </a>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Mail className="w-5 h-5 text-sky-400 shrink-0" />
               <div>
                 <strong className="text-white block mb-1">Email Contact:</strong>
-                <a href="mailto:mail@seemanchalexpress.in" className="hover:text-white">mail@seemanchalexpress.in</a>
+                <a href={`mailto:${contact.email}`} className="hover:text-white font-semibold">
+                  {contact.email}
+                </a>
               </div>
             </div>
           </div>
