@@ -231,7 +231,7 @@ Membership of Seemanchal Express is open to Indian citizens dedicated to communi
 ## 3. Rights and Entitlements
 Registered and active members in good standing are entitled to:
 - Digital verified Membership ID Card with QR authentication.
-- Formal appointment letter issued by the National President / General Secretary.
+- Formal appointment letter issued by the Nation Correspondence / General Secretary.
 - Participation in regional delegations, civic meetings, and welfare drives.
 
 ## 4. Disciplinary Suspension and Cancellation

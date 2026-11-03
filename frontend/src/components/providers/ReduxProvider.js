@@ -11,10 +11,33 @@ function AuthHydrator({ children }) {
 
   useEffect(() => {
     const hydrateAuth = async () => {
+      // Avoid making an unneeded network call or prompting cross-origin storage permissions
+      // on device startup for normal readers/visitors who have never logged in
+      const hasStoredSession =
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('seemanchal_has_session') === 'true' ||
+          Boolean(localStorage.getItem('seemanchal_refresh_token')));
+
+      if (!hasStoredSession) {
+        dispatch(setAuthLoading(false));
+        return;
+      }
+
       try {
-        // Attempt silent refresh via HttpOnly cookie on app boot
-        const res = await api.post('/auth/refresh-token');
+        const storedRefreshToken =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('seemanchal_refresh_token')
+            : null;
+
+        // Attempt silent refresh with cookie + body fallback for cross-domain stability
+        const res = await api.post('/auth/refresh-token', {
+          refreshToken: storedRefreshToken,
+        });
+
         if (res.data.success && res.data.accessToken) {
+          if (res.data.refreshToken && typeof window !== 'undefined') {
+            localStorage.setItem('seemanchal_refresh_token', res.data.refreshToken);
+          }
           dispatch(
             setCredentials({
               accessToken: res.data.accessToken,
@@ -22,10 +45,18 @@ function AuthHydrator({ children }) {
             })
           );
         } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('seemanchal_has_session');
+            localStorage.removeItem('seemanchal_refresh_token');
+          }
           dispatch(setAuthLoading(false));
         }
       } catch (err) {
         // No active refresh session or expired
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('seemanchal_has_session');
+          localStorage.removeItem('seemanchal_refresh_token');
+        }
         dispatch(setAuthLoading(false));
       }
     };

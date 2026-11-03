@@ -18,7 +18,7 @@ const initialCategories = [
 
 const initialPositions = [
   // A. National Executive Committee
-  { title: 'National President', committeeLevel: 'National', committeeName: 'A. National Executive Committee', maxSeats: '1', order: 1 },
+  { title: 'Nation Correspondence', committeeLevel: 'National', committeeName: 'A. National Executive Committee', maxSeats: '1', order: 1 },
   { title: 'National Vice Presidents', committeeLevel: 'National', committeeName: 'A. National Executive Committee', maxSeats: '2', order: 2 },
   { title: 'National General Secretary', committeeLevel: 'National', committeeName: 'A. National Executive Committee', maxSeats: '1', order: 3 },
   { title: 'National Joint Secretaries', committeeLevel: 'National', committeeName: 'A. National Executive Committee', maxSeats: '2', order: 4 },
@@ -153,7 +153,7 @@ const seedDatabase = async () => {
           role: 'member',
           status: 'approved',
           committeeLevel: 'National',
-          assignedDesignation: 'National President',
+          assignedDesignation: 'Nation Correspondence',
           assignedLocation: 'National HQ, New Delhi',
           idCardNumber: 'SE-MEM-2026-001',
           showOnTeamPage: true,

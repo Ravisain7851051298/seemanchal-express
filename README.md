@@ -28,7 +28,7 @@
 
 ## 🏛️ Committee Structure (संगठनात्मक ढांचा)
 
-1. **A. National Executive Committee (राष्ट्रीय कार्यकारिणी)**: National President (1), National Vice Presidents (2), National General Secretary (1), Joint Secretaries (2), Organization Secretary (1), Treasurer (1), Coordinators (5), Executive Members (5–11), Advisory Board.
+1. **A. National Executive Committee (राष्ट्रीय कार्यकारिणी)**: Nation Correspondence (1), National Vice Presidents (2), National General Secretary (1), Joint Secretaries (2), Organization Secretary (1), Treasurer (1), Coordinators (5), Executive Members (5–11), Advisory Board.
 2. **B. State Executive Committee (राज्य कार्यकारिणी - बिहार)**: State President (1), Vice President (1–2), General Secretary (1), Joint Secretary (1–2), Organization Secretary (1), Treasurer (1), Coordinators (5), Executive Members (5–9).
 3. **C. District Executive Committee (जिला कार्यकारिणी)**: District President (1), Vice President (1), General Secretary (1), Joint Secretary (1), Organization Secretary (1), Treasurer (1), Coordinators (4), Executive Members (3–7).
 4. **D. Block / Taluka Committee (प्रखंड / तालुका समिति)**: Block President (1), Vice President (1), Secretary (1), Joint Secretary (1), Treasurer (1), Coordinators (4), Executive Members (3–5).

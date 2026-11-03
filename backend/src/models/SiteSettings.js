@@ -20,11 +20,11 @@ const siteSettingsSchema = new mongoose.Schema(
       },
       presidentSignature: {
         type: String,
-        default: '', // Image URL for National President / Chief Editor signature
+        default: '', // Image URL for Nation Correspondence / Chief Editor signature
       },
       signatoryName: {
         type: String,
-        default: 'National President / Chief Editor',
+        default: 'Nation Correspondence / Chief Editor',
       },
       signatoryDesignation: {
         type: String,

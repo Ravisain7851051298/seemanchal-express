@@ -74,15 +74,24 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Call backend /api/auth/refresh-token with HttpOnly cookie
+        const storedToken =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('seemanchal_refresh_token')
+            : null;
+
+        // Call backend /api/auth/refresh-token with HttpOnly cookie and body fallback
         const res = await axios.post(
           `${API_BASE_URL}/auth/refresh-token`,
-          {},
+          { refreshToken: storedToken },
           { withCredentials: true }
         );
 
         if (res.data.success && res.data.accessToken) {
-          const { accessToken, user } = res.data;
+          const { accessToken, user, refreshToken } = res.data;
+
+          if (refreshToken && typeof window !== 'undefined') {
+            localStorage.setItem('seemanchal_refresh_token', refreshToken);
+          }
 
           // Update Redux Store with new short-lived Access Token & User details
           store.dispatch(setCredentials({ accessToken, user }));
@@ -96,6 +105,10 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('seemanchal_has_session');
+          localStorage.removeItem('seemanchal_refresh_token');
+        }
         // Refresh token is expired or invalid -> log user out in Redux
         store.dispatch(logout());
         return Promise.reject(refreshError);

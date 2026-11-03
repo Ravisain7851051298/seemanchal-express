@@ -31,12 +31,13 @@ const sendTokenResponse = async (user, statusCode, res, message = 'Success') => 
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });
 
-  // Cookie options
+  // Cookie options: sameSite='none' & secure=true enables cross-origin cookie transmission
+  // across deployed environments (e.g. Render backend with custom domain or Vercel frontend)
   const isProduction = process.env.NODE_ENV === 'production';
   const cookieOptions = {
     httpOnly: true,
-    secure: isProduction, // HTTPS in production
-    sameSite: isProduction ? 'strict' : 'lax',
+    secure: true,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   };
@@ -47,6 +48,7 @@ const sendTokenResponse = async (user, statusCode, res, message = 'Success') => 
     success: true,
     message,
     accessToken,
+    refreshToken,
     // backwards compatibility for any legacy callers
     token: accessToken,
     user: {
@@ -210,15 +212,16 @@ router.post('/login', async (req, res) => {
 });
 
 // @route   POST /api/auth/refresh-token
-// @desc    Get a new access token using httpOnly refreshToken cookie
+// @desc    Get a new access token using httpOnly refreshToken cookie or body fallback
 router.post('/refresh-token', async (req, res) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
-        message: 'No refresh token provided in cookies',
+        authenticated: false,
+        message: 'No active session found',
       });
     }
 
@@ -231,9 +234,10 @@ router.post('/refresh-token', async (req, res) => {
       );
     } catch (err) {
       // Clear invalid cookie
-      res.clearCookie('refreshToken', { path: '/' });
-      return res.status(401).json({
+      res.clearCookie('refreshToken', { path: '/', sameSite: 'none', secure: true });
+      return res.status(200).json({
         success: false,
+        authenticated: false,
         message: 'Refresh token expired or invalid. Please login again.',
       });
     }
@@ -241,8 +245,8 @@ router.post('/refresh-token', async (req, res) => {
     // Find user
     const user = await User.findById(decoded.id);
     if (!user) {
-      res.clearCookie('refreshToken', { path: '/' });
-      return res.status(401).json({ success: false, message: 'User not found' });
+      res.clearCookie('refreshToken', { path: '/', sameSite: 'none', secure: true });
+      return res.status(200).json({ success: false, authenticated: false, message: 'User not found' });
     }
 
     // Generate new access token
@@ -250,7 +254,9 @@ router.post('/refresh-token', async (req, res) => {
 
     return res.json({
       success: true,
+      authenticated: true,
       accessToken: newAccessToken,
+      refreshToken,
       token: newAccessToken,
       user: {
         id: user._id,

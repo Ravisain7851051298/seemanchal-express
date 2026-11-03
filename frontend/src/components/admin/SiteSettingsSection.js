@@ -48,7 +48,7 @@ export default function SiteSettingsSection() {
     credentials: {
       officialSeal: '',
       presidentSignature: '',
-      signatoryName: 'National President / Chief Editor',
+      signatoryName: 'Nation Correspondence / Chief Editor',
       signatoryDesignation: 'Editor-in-Chief & Central Secretariat',
     },
     socialLinks: {
@@ -96,7 +96,7 @@ export default function SiteSettingsSection() {
           credentials: {
             officialSeal: s.credentials?.officialSeal || '',
             presidentSignature: s.credentials?.presidentSignature || '',
-            signatoryName: s.credentials?.signatoryName || 'National President / Chief Editor',
+            signatoryName: s.credentials?.signatoryName || 'Nation Correspondence / Chief Editor',
             signatoryDesignation: s.credentials?.signatoryDesignation || 'Editor-in-Chief & Central Secretariat',
           },
           socialLinks: {
@@ -405,13 +405,13 @@ export default function SiteSettingsSection() {
               </div>
             </div>
 
-            {/* 2. National President / Chief Editor Signature Card */}
+            {/* 2. Nation Correspondence / Chief Editor Signature Card */}
             <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    <span>President / Chief Editor Signature (डिजिटल हस्ताक्षर)</span>
+                    <span>Nation Correspondence / Chief Editor Signature (डिजिटल हस्ताक्षर)</span>
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">Authorized signatory signature (Transparent PNG recommended)</p>
                 </div>
@@ -489,7 +489,7 @@ export default function SiteSettingsSection() {
                       credentials: { ...prev.credentials, signatoryName: e.target.value },
                     }))
                   }
-                  placeholder="e.g. National President / Chief Editor"
+                  placeholder="e.g. Nation Correspondence / Chief Editor"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
                 />
               </div>

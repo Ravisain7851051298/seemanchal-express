@@ -38,7 +38,7 @@ export default function AppointmentLetter({ appointmentData, onPrint }) {
     appointmentData.signatoryName ||
     appointmentData.organization?.credentials?.signatoryName ||
     liveSettings?.credentials?.signatoryName ||
-    'National President / Chief Editor';
+    'Nation Correspondence / Chief Editor';
 
   const signatoryDesignation =
     appointmentData.signatoryDesignation ||

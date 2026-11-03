@@ -157,34 +157,34 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <a
               href="tel:9871023184"
-              className="hidden lg:flex items-center gap-1 hover:text-white transition-colors"
+              className="hidden xl:flex items-center gap-1 hover:text-white transition-colors"
             >
               <Phone className="w-3 h-3 text-emerald-400" />
               <span>+91 9871023184</span>
             </a>
-            <span className="text-slate-600 hidden sm:inline">|</span>
+            <span className="text-slate-600 hidden lg:inline">|</span>
             <a
               href="mailto:mail@seemanchalexpress.in"
-              className="hidden sm:flex items-center gap-1 hover:text-white transition-colors"
+              className="hidden lg:flex items-center gap-1 hover:text-white transition-colors"
             >
               <Mail className="w-3 h-3 text-sky-400" />
               <span>mail@seemanchalexpress.in</span>
             </a>
 
             {/* Google News Preference Link */}
-            <span className="text-slate-600 hidden md:inline">|</span>
+            <span className="text-slate-600 hidden lg:inline">|</span>
             <a
               href="https://www.google.com/preferences/source?q=seemanchalexpress.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-amber-300 hover:text-white text-[11px] font-semibold border border-white/10 transition-colors"
+              className="hidden lg:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-amber-300 hover:text-white text-[11px] font-semibold border border-white/10 transition-colors"
               title="Google पर Seemanchal Express को प्राथमिकता दें"
             >
               <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
               <span>Google पर प्राथमिकता दें</span>
             </a>
@@ -204,7 +204,7 @@ export default function Navbar() {
           <img
             src="/logo.jpeg"
             alt="Seemanchal Express"
-            className="h-16 sm:h-20 md:h-24 w-auto object-contain block p-0 m-0 border-0 rounded-none shadow-none"
+            className="h-16 sm:h-18 md:h-18 w-auto object-contain block p-0 m-0 border-0 rounded-none shadow-none"
           />
         </Link>
 
@@ -255,7 +255,7 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
               <Link
                 href={getDashboardLink()}
-                className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all flex items-center gap-1.5"
+                className="text-sm font-bold px-3.5 py-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all flex items-center gap-1.5"
               >
                 <Shield className="w-3.5 h-3.5" />
                 {user.role === 'admin'
@@ -267,9 +267,9 @@ export default function Navbar() {
               <button
                 onClick={logout}
                 title="Logout"
-                className="p-1.5 text-slate-400 hover:text-red-600 rounded-full hover:bg-slate-100"
+                className="p-1.5 text-red-400 hover:text-red-600 rounded-full hover:bg-red-100"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           ) : (
@@ -308,11 +308,10 @@ export default function Navbar() {
               <li key={cat._id || cat.slug}>
                 <Link
                   href={`/category/${cat.slug}`}
-                  className={`px-3 py-2.5 inline-block hover:bg-red-800 transition-colors ${
-                    cat.slug === 'seemanchal-special'
-                      ? 'bg-red-800 font-bold text-amber-200'
-                      : ''
-                  }`}
+                  className={`px-3 py-2.5 inline-block hover:bg-red-800 transition-colors ${cat.slug === 'seemanchal-special'
+                    ? 'bg-red-800 font-bold text-amber-200'
+                    : ''
+                    }`}
                 >
                   {cat.name}
                 </Link>
@@ -469,9 +468,8 @@ export default function Navbar() {
                 key={cat._id || cat.slug}
                 href={`/category/${cat.slug}`}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`py-2 border-b border-slate-800 hover:text-red-400 ${
-                  cat.slug === 'seemanchal-special' ? 'text-amber-300 font-bold' : ''
-                }`}
+                className={`py-2 border-b border-slate-800 hover:text-red-400 ${cat.slug === 'seemanchal-special' ? 'text-amber-300 font-bold' : ''
+                  }`}
               >
                 {cat.name}
               </Link>

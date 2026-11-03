@@ -82,11 +82,43 @@ router.get('/stats', async (req, res) => {
     // 5. News & Views
     const totalNewsPublished = await News.countDocuments({ status: 'published' });
     const pendingNewsReview = await News.countDocuments({ status: 'pending' });
+    const rejectedNews = await News.countDocuments({ status: 'rejected' });
+    const breakingNewsCount = await News.countDocuments({ status: 'published', isBreaking: true });
+    const featuredNewsCount = await News.countDocuments({ status: 'published', isFeatured: true });
+    const trendingNewsCount = await News.countDocuments({ status: 'published', isTrending: true });
 
     const viewsAgg = await News.aggregate([
       { $group: { _id: null, totalViews: { $sum: '$views' } } },
     ]);
     const totalViews = viewsAgg.length > 0 ? viewsAgg[0].totalViews : 0;
+
+    // 6. Category Breakdown Aggregation for Analytics Graphs
+    const categoryStats = await News.aggregate([
+      { $match: { status: 'published' } },
+      { $group: { _id: '$categoryName', count: { $sum: 1 }, views: { $sum: '$views' } } },
+      { $sort: { count: -1 } },
+      { $limit: 12 },
+    ]);
+
+    // 7. Recent Publication & Readership Trends for Graphs
+    const publicationTrends = await News.aggregate([
+      { $match: { status: 'published' } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: { $ifNull: ['$publishedAt', '$createdAt'] } } },
+          stories: { $sum: 1 },
+          views: { $sum: '$views' },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 14 },
+    ]);
+
+    // 8. Complaints by Category
+    const complaintCategories = await Complaint.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
 
     res.json({
       success: true,
@@ -113,16 +145,23 @@ router.get('/stats', async (req, res) => {
         resolvedComplaints,
         rejectedComplaints,
         totalComplaints,
+        complaintCategories,
 
         // Legal metrics
         publishedLegalDocs,
         draftLegalDocs,
         totalLegalDocs,
 
-        // News metrics
+        // News metrics & moderation pipeline
         totalNewsPublished,
         pendingNewsReview,
+        rejectedNews,
+        breakingNewsCount,
+        featuredNewsCount,
+        trendingNewsCount,
         totalViews,
+        categoryStats,
+        publicationTrends,
       },
     });
   } catch (err) {

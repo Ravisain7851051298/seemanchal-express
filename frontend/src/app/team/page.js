@@ -21,7 +21,7 @@ const COMMITTEE_STRUCTURE = [
     title: 'A. National Executive Committee',
     description: 'Apex national leadership steering strategic vision, institutional policies, and nationwide governance.',
     standardPositions: [
-      { role: 'National President', seats: '1' },
+      { role: 'Nation Correspondence', seats: '1' },
       { role: 'National Vice Presidents', seats: '2' },
       { role: 'National General Secretary', seats: '1' },
       { role: 'National Joint Secretaries', seats: '2' },

@@ -44,6 +44,7 @@ import {
   Sparkles,
   History,
   EyeOff,
+  BarChart3,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import {
@@ -75,6 +76,7 @@ import MembershipManagementSection from '../../components/admin/MembershipManage
 import ComplaintsDeskSection from '../../components/admin/ComplaintsDeskSection';
 import AdminActivityLogsSection from '../../components/admin/AdminActivityLogsSection';
 import SiteSettingsSection from '../../components/admin/SiteSettingsSection';
+import AnalyticsDashboardGraphs from '../../components/admin/AnalyticsDashboardGraphs';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -932,6 +934,26 @@ export default function AdminDashboard() {
           <nav className="space-y-1">
             <button
               onClick={() => {
+                dispatch(setActiveAdminTab('analytics'));
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                activeAdminTab === 'analytics' || activeAdminTab === 'overview'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4 text-sky-400" />
+                <span>Dashboard Analytics</span>
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-sky-500/20 text-sky-300 font-mono">
+                Graphs
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
                 dispatch(setActiveAdminTab('applications'));
                 setSidebarOpen(false);
               }}
@@ -1203,6 +1225,7 @@ export default function AdminDashboard() {
               Central Administration
             </span>
             <h2 className="text-2xl font-black text-white">
+              {(activeAdminTab === 'analytics' || activeAdminTab === 'overview') && 'Dashboard Analytics & Operational Intelligence'}
               {activeAdminTab === 'applications' && 'Applicant Reviews & Credential Issuance'}
               {activeAdminTab === 'reporters' && 'Press Reporter Management & Bureau Status'}
               {activeAdminTab === 'membership' && 'Membership Control & Expiry Governance'}
@@ -1220,6 +1243,17 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => dispatch(setActiveAdminTab('analytics'))}
+              className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                activeAdminTab === 'analytics' || activeAdminTab === 'overview'
+                  ? 'bg-sky-600 text-white border-sky-500 shadow-md'
+                  : 'bg-slate-900 hover:bg-slate-800 text-sky-400 border-slate-700'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Analytics Graphs</span>
+            </button>
             <button
               onClick={() => setShowAddNewsModal(true)}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
@@ -1317,14 +1351,26 @@ export default function AdminDashboard() {
             </span>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center shadow-sm">
+          <div
+            onClick={() => dispatch(setActiveAdminTab('analytics'))}
+            className="bg-slate-900 border border-slate-800 hover:border-sky-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+          >
             <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Readership</span>
             <strong className="text-xl sm:text-2xl font-black text-sky-400">
               {stats.totalViews}
             </strong>
-            <span className="text-[10px] text-sky-400 font-bold block mt-0.5">Total Reads</span>
+            <span className="text-[10px] text-sky-400 font-bold block mt-0.5">View Graphs &rarr;</span>
           </div>
         </div>
+
+        {/* TAB: EXECUTIVE ANALYTICS & DASHBOARD GRAPHS */}
+        {(activeAdminTab === 'overview' || activeAdminTab === 'analytics') && (
+          <AnalyticsDashboardGraphs
+            stats={stats}
+            newsList={newsList}
+            categories={categories}
+          />
+        )}
 
         {/* TAB: REPORTER MANAGEMENT SYSTEM */}
         {activeAdminTab === 'reporters' && <ReporterManagementSection />}

@@ -11,7 +11,7 @@ const ORG_DETAILS = {
   phone: '+91 9871023184',
   address: 'F 65, Shaheen Bagh, Okhla, New Delhi-110025',
   website: 'https://seemanchalexpress.in',
-  authorizedSignatory: 'National President / Editor-in-Chief',
+  authorizedSignatory: 'Nation Correspondence / Editor-in-Chief',
 };
 
 // @route   GET /api/documents/id-card/:userId
@@ -57,7 +57,7 @@ router.get('/id-card/:userId', protect, async (req, res) => {
         verificationUrl,
         officialSeal: settings.credentials?.officialSeal || '',
         presidentSignature: settings.credentials?.presidentSignature || '',
-        signatoryName: settings.credentials?.signatoryName || 'National President / Chief Editor',
+        signatoryName: settings.credentials?.signatoryName || 'Nation Correspondence / Chief Editor',
         signatoryDesignation: settings.credentials?.signatoryDesignation || 'Editor-in-Chief & Central Secretariat',
         organization: {
           ...ORG_DETAILS,
@@ -111,7 +111,7 @@ router.get('/appointment-letter/:userId', protect, async (req, res) => {
         validUntil: user.idCardValidUntil,
         officialSeal: settings.credentials?.officialSeal || '',
         presidentSignature: settings.credentials?.presidentSignature || '',
-        signatoryName: settings.credentials?.signatoryName || 'National President / Chief Editor',
+        signatoryName: settings.credentials?.signatoryName || 'Nation Correspondence / Chief Editor',
         signatoryDesignation: settings.credentials?.signatoryDesignation || 'Editor-in-Chief & Central Secretariat',
         organization: {
           ...ORG_DETAILS,

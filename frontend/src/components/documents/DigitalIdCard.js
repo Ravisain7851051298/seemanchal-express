@@ -38,7 +38,7 @@ export default function DigitalIdCard({ cardData, onPrint }) {
     cardData.signatoryName ||
     cardData.organization?.credentials?.signatoryName ||
     liveSettings?.credentials?.signatoryName ||
-    'National President';
+    'Nation Correspondence';
 
   const signatoryDesignation =
     cardData.signatoryDesignation ||

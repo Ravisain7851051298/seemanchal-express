@@ -19,6 +19,12 @@ export function useAuth() {
     try {
       const res = await api.post('/auth/login', { email, password });
       if (res.data.success) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('seemanchal_has_session', 'true');
+          if (res.data.refreshToken) {
+            localStorage.setItem('seemanchal_refresh_token', res.data.refreshToken);
+          }
+        }
         dispatch(
           setCredentials({
             user: res.data.user,
@@ -40,6 +46,12 @@ export function useAuth() {
     try {
       const res = await api.post('/auth/register-member', formData);
       if (res.data.success) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('seemanchal_has_session', 'true');
+          if (res.data.refreshToken) {
+            localStorage.setItem('seemanchal_refresh_token', res.data.refreshToken);
+          }
+        }
         dispatch(
           setCredentials({
             user: res.data.user,
@@ -61,6 +73,12 @@ export function useAuth() {
     try {
       const res = await api.post('/auth/register-reporter', formData);
       if (res.data.success) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('seemanchal_has_session', 'true');
+          if (res.data.refreshToken) {
+            localStorage.setItem('seemanchal_refresh_token', res.data.refreshToken);
+          }
+        }
         dispatch(
           setCredentials({
             user: res.data.user,
@@ -79,10 +97,18 @@ export function useAuth() {
 
   const logoutUser = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('seemanchal_has_session');
+        localStorage.removeItem('seemanchal_refresh_token');
+      }
       await api.post('/auth/logout');
     } catch (e) {
       // Ignore network errors on logout
     } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('seemanchal_has_session');
+        localStorage.removeItem('seemanchal_refresh_token');
+      }
       dispatch(logout());
     }
   };
