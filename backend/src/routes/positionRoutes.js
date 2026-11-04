@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Position = require('../models/Position');
 const { protect, authorize } = require('../middleware/auth');
-const { initialPositions } = require('../utils/seedData');
 
 // @route   GET /api/positions
 // @desc    Get all positions (optionally filter by committeeLevel)
@@ -83,13 +82,11 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
 });
 
 // @route   POST /api/positions/reset-defaults
-// @desc    Reset default positions (Admin)
+// @desc    List default positions from database (Admin)
 router.post('/reset-defaults', protect, authorize('admin'), async (req, res) => {
   try {
-    await Position.deleteMany({});
-    await Position.insertMany(initialPositions);
     const positions = await Position.find({ isActive: true }).sort({ order: 1 });
-    res.json({ success: true, message: 'Default committee positions reset successfully', positions });
+    res.json({ success: true, message: 'Current committee positions retrieved successfully', positions });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

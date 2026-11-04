@@ -143,25 +143,25 @@ export default function AnalyticsDashboardGraphs({
     ];
 
   return (
-    <div className="space-y-6 mb-10">
+    <div className="space-y-2 mb-6">
       {/* 2. Top Metric KPI Sparkline Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {/* Card 1: Readership */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-sky-500/50 transition-all shadow-sm relative overflow-hidden group">
+        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-sky-500/50 transition-all shadow-sm relative overflow-hidden group">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Total Readership
               </span>
-              <strong className="text-2xl font-black text-white mt-1 block">
+              <strong className="text-xl sm:text-2xl font-black text-white mt-0.5 block">
                 {totalViews.toLocaleString()}
               </strong>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/30 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/30 flex items-center justify-center shrink-0">
               <Eye className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
             <span className="flex items-center gap-1 text-sky-400 font-semibold">
               <Activity className="w-3 h-3" /> ~{avgViewsPerNews} views/story
             </span>
@@ -170,21 +170,21 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* Card 2: Editorial Pipeline */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition-all shadow-sm relative overflow-hidden group">
+        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition-all shadow-sm relative overflow-hidden group">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Editorial Pipeline
               </span>
-              <strong className="text-2xl font-black text-amber-400 mt-1 block">
+              <strong className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 block">
                 {totalNews} Live
               </strong>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
               <Newspaper className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
             <span className="text-amber-300 font-semibold">
               {pendingNews} In Review
             </span>
@@ -195,23 +195,23 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* Card 3: Active Bureau */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition-all shadow-sm relative overflow-hidden group">
+        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition-all shadow-sm relative overflow-hidden group">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Accredited Bureau
               </span>
-              <strong className="text-2xl font-black text-emerald-400 mt-1 block">
+              <strong className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5 block">
                 {activeReporters} Active
               </strong>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
             <span className="text-slate-400">
-              {totalReporters} Total Journalists
+              {totalReporters} Journalists
             </span>
             <span className="text-amber-400 font-semibold font-mono">
               {pendingReporters} Pending
@@ -220,21 +220,21 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* Card 4: Grievance Redressal SLA */}
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 transition-all shadow-sm relative overflow-hidden group">
+        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 transition-all shadow-sm relative overflow-hidden group">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Grievance SLA Rate
               </span>
-              <strong className="text-2xl font-black text-purple-400 mt-1 block">
+              <strong className="text-xl sm:text-2xl font-black text-purple-400 mt-0.5 block">
                 {resolutionRate}% Resolved
               </strong>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
               <CheckCircle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60">
             <span className="text-emerald-400 font-semibold">
               {resolvedComplaints} Closed
             </span>
@@ -246,9 +246,9 @@ export default function AnalyticsDashboardGraphs({
       </div>
 
       {/* 3. Main Dual Graphs Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* GRAPH 1: Interactive Readership & Publication Velocity Curve (7 Cols) */}
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -403,8 +403,8 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* GRAPH 2: Category Distribution Breakdown (5 Cols) */}
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-amber-400" />
@@ -465,10 +465,10 @@ export default function AnalyticsDashboardGraphs({
       </div>
 
       {/* 4. Secondary Analytical Row: Editorial Pipeline & Personnel SLA */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Panel 1: Editorial Moderation Pipeline */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span>Editorial Moderation Pipeline</span>
@@ -509,8 +509,8 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* Panel 2: Personnel & Organizational Retention */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Users className="w-4 h-4 text-amber-400" />
               <span>Personnel & Cadre Retention</span>
@@ -581,8 +581,8 @@ export default function AnalyticsDashboardGraphs({
         </div>
 
         {/* Panel 3: Grievance Redressal SLA Performance */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-purple-400" />
               <span>Grievance Redressal SLA Rate</span>

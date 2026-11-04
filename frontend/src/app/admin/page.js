@@ -45,6 +45,7 @@ import {
   History,
   EyeOff,
   BarChart3,
+  ChevronDown,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import {
@@ -77,6 +78,7 @@ import ComplaintsDeskSection from '../../components/admin/ComplaintsDeskSection'
 import AdminActivityLogsSection from '../../components/admin/AdminActivityLogsSection';
 import SiteSettingsSection from '../../components/admin/SiteSettingsSection';
 import AnalyticsDashboardGraphs from '../../components/admin/AnalyticsDashboardGraphs';
+import applyWatermarkToImage, { VideoWatermarkBadge } from '../../lib/watermarkHelper';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -156,9 +158,11 @@ export default function AdminDashboard() {
     order: 1,
   });
 
-  // Video Upload States
+  // Video & Image Upload States
   const [videoUploading, setVideoUploading] = useState(false);
   const [editVideoUploading, setEditVideoUploading] = useState(false);
+  const [newsImageUploading, setNewsImageUploading] = useState(false);
+  const [activeMemberActionMenu, setActiveMemberActionMenu] = useState(null);
 
   // Add News Modal State
   const [showAddNewsModal, setShowAddNewsModal] = useState(false);
@@ -174,6 +178,8 @@ export default function AdminDashboard() {
     isBreaking: false,
     isFeatured: false,
     isTrending: false,
+    addWatermark: true,
+    policyAccepted: true,
     tags: '',
   });
 
@@ -191,6 +197,8 @@ export default function AdminDashboard() {
     isBreaking: false,
     isFeatured: false,
     isTrending: false,
+    addWatermark: true,
+    policyAccepted: true,
     tags: '',
   });
   const [editNewsSubmitting, setEditNewsSubmitting] = useState(false);
@@ -778,19 +786,69 @@ export default function AdminDashboard() {
     }
   };
 
+  // Upload Image for Publish News Form (with Watermark support)
+  const handleNewsImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setNewsImageUploading(true);
+    try {
+      let finalFile = file;
+      if (newNewsForm.addWatermark) {
+        finalFile = await applyWatermarkToImage(file);
+      }
+      const formData = new FormData();
+      formData.append('file', finalFile);
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        const fileUrl = res.data.fileUrl || res.data.url;
+        setNewNewsForm((prev) => ({ ...prev, thumbnail: fileUrl }));
+      } else {
+        alert(res.data.message || 'Image upload failed');
+      }
+    } catch (err) {
+      console.error('Image upload error:', err);
+      alert('Image upload failed');
+    } finally {
+      setNewsImageUploading(false);
+    }
+  };
+
+  // Remove Designation for Member
+  const handleRemoveMemberDesignation = async (m) => {
+    if (!confirm(`Are you sure you want to remove the designation "${m.assignedDesignation || 'Assigned Title'}" from ${m.name}?`)) {
+      return;
+    }
+    try {
+      const res = await api.put(`/admin/users/${m._id}`, { assignedDesignation: '' });
+      if (res.data.success) {
+        dispatch(updateUserItem(res.data.user));
+        alert(`Designation removed for ${m.name}`);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to remove designation');
+    }
+  };
+
   // Upload Image for Edit Story Form
   const handleEditNewsImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setEditNewsUploading(true);
     try {
+      let finalFile = file;
+      if (editNewsForm.addWatermark) {
+        finalFile = await applyWatermarkToImage(file);
+      }
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', finalFile);
       const res = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
-        setEditNewsForm((prev) => ({ ...prev, thumbnail: res.data.url }));
+        const fileUrl = res.data.fileUrl || res.data.url;
+        setEditNewsForm((prev) => ({ ...prev, thumbnail: fileUrl }));
       }
     } catch (err) {
       alert('Image upload failed');
@@ -898,9 +956,8 @@ export default function AdminDashboard() {
 
       {/* 2. Admin Sidebar */}
       <aside
-        className={`${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 transition-transform duration-200 fixed md:static inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-5`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } md:translate-x-0 transition-transform duration-200 fixed md:static inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-5`}
       >
         <div>
           {/* Brand Logo - Big Logo, No Name */}
@@ -937,11 +994,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('analytics'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'analytics' || activeAdminTab === 'overview'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'analytics' || activeAdminTab === 'overview'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <BarChart3 className="w-4 h-4 text-sky-400" />
@@ -957,11 +1013,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('applications'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'applications'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'applications'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <FileCheck className="w-4 h-4" />
@@ -979,11 +1034,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('reporters'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'reporters'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'reporters'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <Users className="w-4 h-4 text-amber-400" />
@@ -1001,11 +1055,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('membership'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'membership'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'membership'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <Award className="w-4 h-4 text-blue-400" />
@@ -1023,11 +1076,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('complaints'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'complaints'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'complaints'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <MessageSquare className="w-4 h-4 text-emerald-400" />
@@ -1045,11 +1097,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('legal'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'legal'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'legal'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <FileCheck className="w-4 h-4 text-purple-400" />
@@ -1065,11 +1116,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('news'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'news'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'news'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <Newspaper className="w-4 h-4" />
@@ -1085,11 +1135,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('members'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'members'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'members'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <Users className="w-4 h-4" />
@@ -1105,11 +1154,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('categories'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'categories'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'categories'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <FolderPlus className="w-4 h-4" />
               <span>News Categories</span>
@@ -1120,11 +1168,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('positions'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'positions'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'positions'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <Layers className="w-4 h-4" />
               <span>Committee Positions</span>
@@ -1135,11 +1182,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('inquiries'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'inquiries'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'inquiries'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <span className="flex items-center gap-2.5">
                 <MessageSquare className="w-4 h-4" />
@@ -1155,11 +1201,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('activity'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'activity'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'activity'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <History className="w-4 h-4 text-sky-400" />
               <span>Activity Audit Logs</span>
@@ -1170,11 +1215,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('settings'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'settings'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'settings'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <Award className="w-4 h-4 text-amber-400" />
               <span>Seal, Signature & Settings</span>
@@ -1185,11 +1229,10 @@ export default function AdminDashboard() {
                 dispatch(setActiveAdminTab('security'));
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeAdminTab === 'security'
-                  ? 'bg-red-600 text-white shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAdminTab === 'security'
+                ? 'bg-red-600 text-white shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <Lock className="w-4 h-4" />
               <span>Admin Security</span>
@@ -1217,14 +1260,14 @@ export default function AdminDashboard() {
       </aside>
 
       {/* 3. Main Content View Area */}
-      <main className="flex-1 min-h-screen overflow-y-auto p-4 sm:p-8">
+      <main className="flex-1 min-h-screen overflow-y-auto p-3">
         {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-8 border-b border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-800">
           <div>
-            <span className="text-[11px] font-bold text-red-500 uppercase tracking-widest block mb-1">
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block mb-0.5">
               Central Administration
             </span>
-            <h2 className="text-2xl font-black text-white">
+            <h2 className="text-xl sm:text-2xl font-black text-white">
               {(activeAdminTab === 'analytics' || activeAdminTab === 'overview') && 'Dashboard Analytics & Operational Intelligence'}
               {activeAdminTab === 'applications' && 'Applicant Reviews & Credential Issuance'}
               {activeAdminTab === 'reporters' && 'Press Reporter Management & Bureau Status'}
@@ -1242,34 +1285,33 @@ export default function AdminDashboard() {
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => dispatch(setActiveAdminTab('analytics'))}
-              className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                activeAdminTab === 'analytics' || activeAdminTab === 'overview'
-                  ? 'bg-sky-600 text-white border-sky-500 shadow-md'
-                  : 'bg-slate-900 hover:bg-slate-800 text-sky-400 border-slate-700'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${activeAdminTab === 'analytics' || activeAdminTab === 'overview'
+                ? 'bg-sky-600 text-white border-sky-500 shadow-md'
+                : 'bg-slate-900 hover:bg-slate-800 text-sky-400 border-slate-700'
+                }`}
             >
               <BarChart3 className="w-4 h-4" />
               <span>Analytics Graphs</span>
             </button>
             <button
               onClick={() => setShowAddNewsModal(true)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
             >
               <PlusCircle className="w-4 h-4" /> Publish News Article
             </button>
             <button
               onClick={() => setShowAddCategoryModal(true)}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1.5 border border-slate-700"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1.5 border border-slate-700"
             >
               <FolderPlus className="w-4 h-4" /> Add Category
             </button>
             <button
               onClick={loadAdminData}
               title="Refresh"
-              className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs border border-slate-700"
+              className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs border border-slate-700"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -1277,16 +1319,16 @@ export default function AdminDashboard() {
         </div>
 
         {/* Real DB Analytics Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
           <div
             onClick={() => dispatch(setActiveAdminTab('reporters'))}
-            className="bg-slate-900 border border-slate-800 hover:border-amber-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-amber-500 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Reporters</span>
-            <strong className="text-xl sm:text-2xl font-black text-amber-400">
+            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Reporters</span>
+            <strong className="text-xl font-black text-amber-400">
               {stats.activeReporters ?? stats.totalReporters}
             </strong>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
               {stats.suspendedReporters > 0 ? (
                 <span className="text-red-400 font-bold">{stats.suspendedReporters} Suspended</span>
               ) : (
@@ -1297,13 +1339,13 @@ export default function AdminDashboard() {
 
           <div
             onClick={() => dispatch(setActiveAdminTab('membership'))}
-            className="bg-slate-900 border border-slate-800 hover:border-blue-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-blue-500 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Members</span>
-            <strong className="text-xl sm:text-2xl font-black text-white">
+            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Members</span>
+            <strong className="text-xl font-black text-white">
               {stats.activeMembers ?? stats.totalMembers}
             </strong>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
               {stats.expiredMemberships > 0 ? (
                 <span className="text-amber-400 font-bold">{stats.expiredMemberships} Expired</span>
               ) : (
@@ -1314,52 +1356,52 @@ export default function AdminDashboard() {
 
           <div
             onClick={() => dispatch(setActiveAdminTab('complaints'))}
-            className="bg-slate-900 border border-slate-800 hover:border-red-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-red-500 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-red-400 block mb-0.5">Grievances</span>
-            <strong className="text-xl sm:text-2xl font-black text-red-400">
+            <span className="text-[10px] font-bold text-red-400 block mb-0.5">Grievances</span>
+            <strong className="text-xl font-black text-red-400">
               {stats.pendingComplaints ?? 0}
             </strong>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
               {stats.resolvedComplaints ? `${stats.resolvedComplaints} Resolved` : 'Pending Cases'}
             </span>
           </div>
 
           <div
             onClick={() => dispatch(setActiveAdminTab('legal'))}
-            className="bg-slate-900 border border-slate-800 hover:border-purple-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-purple-500 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-purple-400 block mb-0.5">Legal Policies</span>
-            <strong className="text-xl sm:text-2xl font-black text-purple-300">
+            <span className="text-[10px] font-bold text-purple-400 block mb-0.5">Legal Policies</span>
+            <strong className="text-xl font-black text-purple-300">
               {stats.publishedLegalDocs ?? 15}
             </strong>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-              {stats.draftLegalDocs ? `${stats.draftLegalDocs} Drafts` : 'Published Online'}
+            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
+              {stats.draftLegalDocs ? `${stats.draftLegalDocs} Drafts` : 'Published'}
             </span>
           </div>
 
           <div
             onClick={() => dispatch(setActiveAdminTab('news'))}
-            className="bg-slate-900 border border-slate-800 hover:border-red-600 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-red-600 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Published News</span>
-            <strong className="text-xl sm:text-2xl font-black text-red-500">
+            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Published News</span>
+            <strong className="text-xl font-black text-red-500">
               {stats.totalNewsPublished}
             </strong>
-            <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
               {stats.pendingNewsReview ? `${stats.pendingNewsReview} In Review` : 'Live Articles'}
             </span>
           </div>
 
           <div
             onClick={() => dispatch(setActiveAdminTab('analytics'))}
-            className="bg-slate-900 border border-slate-800 hover:border-sky-500 rounded-xl p-3.5 text-center cursor-pointer transition-all shadow-sm"
+            className="bg-slate-900 border border-slate-800 hover:border-sky-500 rounded-xl px-3 py-2 text-center cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center"
           >
-            <span className="text-[11px] font-bold text-slate-400 block mb-0.5">Readership</span>
-            <strong className="text-xl sm:text-2xl font-black text-sky-400">
+            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Readership</span>
+            <strong className="text-xl font-black text-sky-400">
               {stats.totalViews}
             </strong>
-            <span className="text-[10px] text-sky-400 font-bold block mt-0.5">View Graphs &rarr;</span>
+            <span className="text-[9px] text-sky-400 font-bold block mt-0.5">Graphs &rarr;</span>
           </div>
         </div>
 
@@ -1392,9 +1434,9 @@ export default function AdminDashboard() {
 
         {/* TAB 1: APPLICATIONS WORKFLOW */}
         {activeAdminTab === 'applications' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
             {/* Filter controls */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 pb-2.5 border-b border-slate-800">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-400">Applicant:</span>
@@ -1473,11 +1515,10 @@ export default function AdminDashboard() {
 
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              app.role === 'reporter'
-                                ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                                : 'bg-blue-950 text-blue-400 border border-blue-800'
-                            }`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${app.role === 'reporter'
+                              ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                              : 'bg-blue-950 text-blue-400 border border-blue-800'
+                              }`}
                           >
                             {app.role === 'reporter' ? 'Reporter' : 'Member'}
                           </span>
@@ -1532,11 +1573,10 @@ export default function AdminDashboard() {
                           ) : (
                             <div className="flex items-center justify-end gap-2">
                               <span
-                                className={`px-2.5 py-1 rounded text-[11px] font-bold capitalize ${
-                                  app.status === 'approved'
-                                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                    : 'bg-red-950 text-red-400 border border-red-800'
-                                }`}
+                                className={`px-2.5 py-1 rounded text-[11px] font-bold capitalize ${app.status === 'approved'
+                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                  : 'bg-red-950 text-red-400 border border-red-800'
+                                  }`}
                               >
                                 {app.status}
                               </span>
@@ -1576,8 +1616,8 @@ export default function AdminDashboard() {
 
         {/* TAB 2: MEMBERS & TEAM PAGE MANAGEMENT */}
         {activeAdminTab === 'members' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3 pb-2.5 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white">
                   Approved Members, Reporters & Team Page Control
@@ -1593,7 +1633,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Filter and Search Bar for Members */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 bg-slate-800/60 p-2 rounded-xl border border-slate-700/60">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-400">Role:</span>
@@ -1697,11 +1737,10 @@ export default function AdminDashboard() {
                         <td className="py-3.5 px-4 text-center">
                           <button
                             onClick={() => handleToggleTeamDisplay(m)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-sm ${
-                              m.showOnTeamPage
-                                ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-750 border border-slate-700'
-                            }`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-sm ${m.showOnTeamPage
+                              ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
+                              : 'bg-slate-800 text-slate-400 hover:bg-slate-750 border border-slate-700'
+                              }`}
                           >
                             {m.showOnTeamPage ? (
                               <>
@@ -1715,36 +1754,97 @@ export default function AdminDashboard() {
                           </button>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="py-3.5 px-4 text-right relative">
+                          <div className="inline-block text-left">
                             <button
-                              onClick={() => setViewIdCardUser(m)}
-                              title="Preview Digital ID Card"
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded"
+                              type="button"
+                              onClick={() => setActiveMemberActionMenu(activeMemberActionMenu === m._id ? null : m._id)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                             >
-                              <Award className="w-4 h-4 text-red-500" />
+                              <span>Action</span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeMemberActionMenu === m._id ? 'rotate-180' : ''}`} />
                             </button>
-                            <button
-                              onClick={() => setViewLetterUser(m)}
-                              title="Preview Appointment Letter"
-                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded"
-                            >
-                              <Printer className="w-4 h-4 text-slate-300" />
-                            </button>
-                            <button
-                              onClick={() => openEditMemberModal(m)}
-                              title="Edit Assignment"
-                              className="p-1.5 bg-slate-800 hover:bg-blue-950 text-slate-300 hover:text-blue-400 rounded"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(m._id)}
-                              title="Delete Member"
-                              className="p-1.5 bg-slate-800 hover:bg-red-950 text-slate-300 hover:text-red-400 rounded"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+
+                            {activeMemberActionMenu === m._id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-30"
+                                  onClick={() => setActiveMemberActionMenu(null)}
+                                />
+                                <div className="absolute right-4 mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs">
+                                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                                    Action: {m.name}
+                                  </div>
+
+                                  {/* Change Designation */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMemberActionMenu(null);
+                                      openEditMemberModal(m);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-blue-950/70 hover:text-blue-300 font-semibold transition-colors text-left"
+                                  >
+                                    <Award className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                    <span>Change Designation</span>
+                                  </button>
+
+                                  {/* Remove Designation */}
+                                  {m.assignedDesignation && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMemberActionMenu(null);
+                                        handleRemoveMemberDesignation(m);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-950/70 font-semibold transition-colors text-left"
+                                    >
+                                      <UserX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                      <span>Remove Designation</span>
+                                    </button>
+                                  )}
+
+                                  {/* Digital ID Card */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMemberActionMenu(null);
+                                      setViewIdCardUser(m);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
+                                  >
+                                    <Award className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                    <span>View Digital ID Card</span>
+                                  </button>
+
+                                  {/* Appointment Letter */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMemberActionMenu(null);
+                                      setViewLetterUser(m);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
+                                  >
+                                    <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span>Appointment Letter</span>
+                                  </button>
+
+                                  {/* Delete User */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMemberActionMenu(null);
+                                      handleDeleteUser(m._id);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-950/70 font-semibold transition-colors text-left border-t border-slate-800/80 pt-1.5"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                    <span>Delete Member</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1762,8 +1862,8 @@ export default function AdminDashboard() {
 
         {/* TAB 3: NEWS & EDITORIAL DESK */}
         {activeAdminTab === 'news' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3 pb-2.5 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white">Editorial Desk & Reporter News Moderation</h3>
                 <p className="text-xs text-slate-400">
@@ -1772,14 +1872,14 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => setShowAddNewsModal(true)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
+                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
               >
                 <PlusCircle className="w-4 h-4" /> Publish News Article
               </button>
             </div>
 
             {/* Filter and Search Bar for News */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 bg-slate-800/60 p-2 rounded-xl border border-slate-700/60">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-400">Status:</span>
@@ -1860,13 +1960,12 @@ export default function AdminDashboard() {
                             </span>
                           )}
                           <span
-                            className={`font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
-                              story.status === 'published'
-                                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
-                                : story.status === 'pending'
+                            className={`font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${story.status === 'published'
+                              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                              : story.status === 'pending'
                                 ? 'bg-amber-950/80 text-amber-400 border border-amber-800/60'
                                 : 'bg-red-950/80 text-red-400 border border-red-800/60'
-                            }`}
+                              }`}
                           >
                             {story.status === 'published' ? 'Published' : story.status}
                           </span>
@@ -1965,11 +2064,10 @@ export default function AdminDashboard() {
                           {/* 1. Breaking Toggle */}
                           <button
                             onClick={() => handleToggleNewsFlag(story._id, 'isBreaking', story.isBreaking)}
-                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
-                              story.isBreaking
-                                ? 'bg-amber-950 text-amber-300 border border-amber-500 shadow-sm'
-                                : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
-                            }`}
+                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${story.isBreaking
+                              ? 'bg-amber-950 text-amber-300 border border-amber-500 shadow-sm'
+                              : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
+                              }`}
                             title={story.isBreaking ? 'Remove from Breaking Ticker' : 'Broadcast to Breaking News Banners/Ticker'}
                           >
                             <Flame className={`w-3 h-3 ${story.isBreaking ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-500'}`} />
@@ -1979,11 +2077,10 @@ export default function AdminDashboard() {
                           {/* 2. Top Highlight Toggle */}
                           <button
                             onClick={() => handleToggleNewsFlag(story._id, 'isFeatured', story.isFeatured)}
-                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
-                              story.isFeatured
-                                ? 'bg-yellow-950 text-yellow-300 border border-yellow-500 shadow-sm'
-                                : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
-                            }`}
+                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${story.isFeatured
+                              ? 'bg-yellow-950 text-yellow-300 border border-yellow-500 shadow-sm'
+                              : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
+                              }`}
                             title={story.isFeatured ? 'Remove from Top Highlights' : 'Promote to Top Highlight News Titles / Hero'}
                           >
                             <Sparkles className={`w-3 h-3 ${story.isFeatured ? 'text-yellow-400' : 'text-slate-500'}`} />
@@ -1993,11 +2090,10 @@ export default function AdminDashboard() {
                           {/* 3. Top Trending Toggle */}
                           <button
                             onClick={() => handleToggleNewsFlag(story._id, 'isTrending', story.isTrending)}
-                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
-                              story.isTrending
-                                ? 'bg-rose-950 text-rose-300 border border-rose-500 shadow-sm'
-                                : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
-                            }`}
+                            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${story.isTrending
+                              ? 'bg-rose-950 text-rose-300 border border-rose-500 shadow-sm'
+                              : 'bg-transparent text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900'
+                              }`}
                             title={story.isTrending ? 'Remove from Trending' : 'Add to Top Trending Stories'}
                           >
                             <TrendingUp className={`w-3 h-3 ${story.isTrending ? 'text-rose-400' : 'text-slate-500'}`} />
@@ -2055,8 +2151,8 @@ export default function AdminDashboard() {
 
         {/* TAB 4: CATEGORIES MANAGEMENT */}
         {activeAdminTab === 'categories' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+            <div className="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white">News Categories Manager</h3>
                 <p className="text-xs text-slate-400">
@@ -2065,17 +2161,17 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => setShowAddCategoryModal(true)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
+                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
               >
                 <PlusCircle className="w-4 h-4" /> Add Category
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {[...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((cat) => (
                 <div
                   key={cat._id}
-                  className="p-4 rounded-xl border border-slate-800 bg-slate-800/40 flex justify-between items-start"
+                  className="p-3 rounded-xl border border-slate-800 bg-slate-800/40 flex justify-between items-start"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -2089,7 +2185,7 @@ export default function AdminDashboard() {
                       <p className="text-xs text-slate-400">{cat.nameHindi}</p>
                     )}
                     {cat.description && (
-                      <p className="text-[11px] text-slate-400 mt-2 line-clamp-2">
+                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
                         {cat.description}
                       </p>
                     )}
@@ -2118,8 +2214,8 @@ export default function AdminDashboard() {
 
         {/* TAB 5: COMMITTEE POSITIONS */}
         {activeAdminTab === 'positions' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-800">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3 pb-2.5 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white">
                   Dynamic Committee & Position Management
@@ -2132,13 +2228,13 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowAddPositionModal(true)}
-                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
                 >
                   <PlusCircle className="w-4 h-4" /> Add Custom Position
                 </button>
                 <button
                   onClick={handleResetDefaultPositions}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-750 text-white rounded-lg text-xs font-bold flex items-center gap-1 border border-slate-700"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-white rounded-lg text-xs font-bold flex items-center gap-1 border border-slate-700"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-red-500" /> Restore Sanctioned Hierarchy
                 </button>
@@ -2151,8 +2247,8 @@ export default function AdminDashboard() {
               if (posInLevel.length === 0) return null;
 
               return (
-                <div key={lvl} className="mb-8">
-                  <div className="bg-slate-800/80 text-white px-4 py-2 rounded-lg flex justify-between items-center mb-3 border border-slate-700">
+                <div key={lvl} className="mb-4">
+                  <div className="bg-slate-800/80 text-white px-3 py-1.5 rounded-lg flex justify-between items-center mb-2 border border-slate-700">
                     <span className="font-bold text-xs uppercase tracking-wide">
                       {posInLevel[0]?.committeeName || `${lvl} Committee`}
                     </span>
@@ -2161,11 +2257,11 @@ export default function AdminDashboard() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {posInLevel.map((pos) => (
                       <div
                         key={pos._id}
-                        className="p-3 rounded-lg border border-slate-800 bg-slate-800/40 flex justify-between items-center"
+                        className="p-2.5 rounded-lg border border-slate-800 bg-slate-800/40 flex justify-between items-center"
                       >
                         <div>
                           <h4 className="text-xs font-bold text-white">{pos.title}</h4>
@@ -2191,13 +2287,15 @@ export default function AdminDashboard() {
 
         {/* TAB 6: INQUIRIES */}
         {activeAdminTab === 'inquiries' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-base font-bold text-white mb-4">Incoming Inquiries & Whistleblower Tips</h3>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+            <h3 className="text-base font-bold text-white mb-3 pb-2 border-b border-slate-800">
+              Incoming Inquiries & Whistleblower Tips
+            </h3>
             {inquiries.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {inquiries.map((inq) => (
-                  <div key={inq._id} className="p-4 rounded-xl border border-slate-800 bg-slate-800/40 text-xs">
-                    <div className="flex justify-between items-start mb-2">
+                  <div key={inq._id} className="p-3 rounded-xl border border-slate-800 bg-slate-800/40 text-xs">
+                    <div className="flex justify-between items-start mb-1.5">
                       <div>
                         <strong className="text-white text-sm block">{inq.name}</strong>
                         <span className="text-slate-400">{inq.email} • {inq.phone}</span>
@@ -2207,7 +2305,7 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <div className="font-bold text-red-400 mb-1">Subject: {inq.subject}</div>
-                    <p className="text-slate-300 leading-relaxed bg-slate-800 p-3 rounded border border-slate-700">
+                    <p className="text-slate-300 leading-relaxed bg-slate-800 p-2.5 rounded border border-slate-700">
                       {inq.message}
                     </p>
                   </div>
@@ -2221,18 +2319,17 @@ export default function AdminDashboard() {
 
         {/* TAB 7: ADMIN SECURITY */}
         {activeAdminTab === 'security' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm max-w-lg mx-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm max-w-lg mx-auto">
             <h3 className="text-base font-bold text-white mb-4 border-b border-slate-800 pb-2">
               Update Admin Master Password
             </h3>
 
             {passwordMsg.text && (
               <div
-                className={`p-3 rounded-lg text-xs font-bold mb-4 ${
-                  passwordMsg.type === 'success'
-                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                    : 'bg-red-950 text-red-400 border border-red-800'
-                }`}
+                className={`p-3 rounded-lg text-xs font-bold mb-4 ${passwordMsg.type === 'success'
+                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                  : 'bg-red-950 text-red-400 border border-red-800'
+                  }`}
               >
                 {passwordMsg.text}
               </div>
@@ -2925,6 +3022,17 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
+                  <label className="block font-bold text-slate-300 mb-1">Subtitle / Summary Lead</label>
+                  <input
+                    type="text"
+                    value={newNewsForm.subtitle}
+                    onChange={(e) => setNewNewsForm({ ...newNewsForm, subtitle: e.target.value })}
+                    placeholder="Concise 1-2 sentence lead summarizing the story..."
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  />
+                </div>
+
+                <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block font-bold text-slate-300">
                       Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
@@ -2956,11 +3064,10 @@ export default function AdminDashboard() {
                               category: updated[0] || '',
                             });
                           }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isSelected
-                              ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 font-bold'
-                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                          }`}
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                            ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 font-bold'
+                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                            }`}
                         >
                           <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
                           <span>{c.name}</span>
@@ -2981,17 +3088,66 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                {/* Media Section: Featured Photo & Video Coverage */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Photo Upload & URL */}
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">Featured Photo Link (URL)</label>
-                    <input
-                      type="text"
-                      value={newNewsForm.thumbnail}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, thumbnail: e.target.value })}
-                      placeholder="https://..."
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
-                    />
+                    <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                      <span>Featured Photo (Upload or URL) *</span>
+                      {newNewsForm.thumbnail && (
+                        <button
+                          type="button"
+                          onClick={() => setNewNewsForm({ ...newNewsForm, thumbnail: '' })}
+                          className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                        >
+                          ✕ Clear
+                        </button>
+                      )}
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${newsImageUploading
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-blue-950/80 hover:bg-blue-900 border-blue-800/80 text-blue-200'
+                          }`}>
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{newsImageUploading ? 'Processing...' : 'Upload Photo'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={newsImageUploading}
+                            onChange={handleNewsImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        <input
+                          type="text"
+                          value={newNewsForm.thumbnail}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, thumbnail: e.target.value })}
+                          placeholder="or paste image URL..."
+                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                        />
+                      </div>
+
+                      {newNewsForm.thumbnail && (
+                        <div className="relative w-36 h-20 rounded-lg overflow-hidden border border-slate-700 bg-black group shadow">
+                          <img
+                            src={getMediaUrl(newNewsForm.thumbnail)}
+                            alt="Thumbnail Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          {newNewsForm.addWatermark && (
+                            <div className="absolute bottom-1 right-1 bg-black/85 text-[8px] font-bold px-1.5 py-0.5 rounded text-white border border-red-500/60 flex items-center gap-1 pointer-events-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                              <span>वॉटरमार्क</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Video Upload & URL */}
                   <div>
                     <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
@@ -3009,11 +3165,10 @@ export default function AdminDashboard() {
                     </label>
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${
-                          videoUploading
-                            ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
-                            : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-200'
-                        }`}>
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${videoUploading
+                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-200'
+                          }`}>
                           <Upload className="w-3.5 h-3.5" />
                           <span>{videoUploading ? 'Uploading Video...' : 'Upload Video'}</span>
                           <input
@@ -3032,11 +3187,118 @@ export default function AdminDashboard() {
                           className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
                         />
                       </div>
+
                       {newNewsForm.videoUrl && (
-                        <div className="p-1.5 px-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
-                          <span className="truncate max-w-[280px]">✓ Video Attached: {newNewsForm.videoUrl}</span>
+                        <div className="space-y-1.5">
+                          <div className="p-1.5 px-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
+                            <span className="truncate max-w-[280px]">✓ Video Attached: {newNewsForm.videoUrl}</span>
+                          </div>
+                          {/* Live Video Preview with Watermark overlay */}
+                          <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-black aspect-video max-w-xs shadow">
+                            {newNewsForm.videoUrl.includes('youtube.com') || newNewsForm.videoUrl.includes('youtu.be') ? (
+                              <iframe
+                                src={
+                                  newNewsForm.videoUrl.includes('watch?v=')
+                                    ? newNewsForm.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
+                                    : newNewsForm.videoUrl.includes('youtu.be/')
+                                      ? newNewsForm.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                                      : newNewsForm.videoUrl
+                                }
+                                title="Video Preview"
+                                className="w-full h-full border-0 pointer-events-none"
+                              />
+                            ) : (
+                              <video src={getMediaUrl(newNewsForm.videoUrl)} className="w-full h-full object-contain" />
+                            )}
+                            {newNewsForm.addWatermark && <VideoWatermarkBadge />}
+                          </div>
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Watermark & Policy Settings */}
+                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newNewsForm.addWatermark}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, addWatermark: e.target.checked })}
+                      className="mt-0.5 rounded text-red-600"
+                    />
+                    <div>
+                      <span className="font-bold text-white flex items-center gap-1.5 text-xs">
+                        <Shield className="w-3.5 h-3.5 text-red-400" />
+                        Add Watermark on Image and on Video (फोटो एवं वीडियो पर वॉटरमार्क जोड़ें)
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        अपलोड की जाने वाली फोटो पर &apos;सीमांचल एक्सप्रेस&apos; का आधिकारिक डिजिटल वॉटरमार्क स्वतः स्टैम्प होगा तथा वीडियो पर लाइव चैनल ब्रॉडकास्ट बैज प्रदर्शित होगा।
+                      </p>
+                    </div>
+                  </label>
+
+                  <div className="flex items-start gap-2.5 pt-2 border-t border-slate-800/80">
+                    <input
+                      type="checkbox"
+                      id="policyAcceptanceCheckAdmin"
+                      required
+                      checked={newNewsForm.policyAccepted}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, policyAccepted: e.target.checked })}
+                      className="mt-1 rounded text-emerald-600 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label htmlFor="policyAcceptanceCheckAdmin" className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs cursor-pointer">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          Editorial &amp; Privacy Policy Acceptance (नीति स्वीकृति) *
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href="/legal/privacy-policy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline inline-flex items-center gap-1 bg-amber-950/60 hover:bg-amber-900/60 px-2 py-0.5 rounded border border-amber-800/80 transition-colors"
+                            title="Read Privacy Policy in new tab"
+                          >
+                            <span>Read Privacy Policy (गोपनीयता नीति पढ़ें)</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <a
+                            href="/legal/editorial-policy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-bold text-slate-300 hover:text-white underline inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-750 px-2 py-0.5 rounded border border-slate-700 transition-colors"
+                            title="Read Editorial Policy in new tab"
+                          >
+                            <span>Editorial Code</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
+                      <label htmlFor="policyAcceptanceCheckAdmin" className="text-[11px] text-slate-400 mt-1 block leading-relaxed cursor-pointer">
+                        मैं प्रमाणित करता हूँ कि यह समाचार, संलग्न छवियां और वीडियो सामग्री सीमांचल एक्सप्रेस की{' '}
+                        <a
+                          href="/legal/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-amber-400 hover:text-amber-300 underline font-semibold"
+                        >
+                          गोपनीयता नीति (Privacy Policy)
+                        </a>{' '}
+                        एवं{' '}
+                        <a
+                          href="/legal/editorial-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-amber-400 hover:text-amber-300 underline font-semibold"
+                        >
+                          संपादकीय पत्रकारिता आचार संहिता
+                        </a>{' '}
+                        के पूर्णतः अनुरूप हैं।
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -3132,22 +3394,20 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-xl font-black text-white">{inspectApplicantModal.name}</h3>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                          inspectApplicantModal.role === 'reporter'
-                            ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                            : 'bg-blue-950 text-blue-400 border border-blue-800'
-                        }`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${inspectApplicantModal.role === 'reporter'
+                          ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                          : 'bg-blue-950 text-blue-400 border border-blue-800'
+                          }`}
                       >
                         {inspectApplicantModal.role}
                       </span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                          inspectApplicantModal.status === 'approved'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                            : inspectApplicantModal.status === 'pending'
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${inspectApplicantModal.status === 'approved'
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                          : inspectApplicantModal.status === 'pending'
                             ? 'bg-amber-950 text-amber-400 border border-amber-800'
                             : 'bg-red-950 text-red-400 border border-red-800'
-                        }`}
+                          }`}
                       >
                         {inspectApplicantModal.status}
                       </span>
@@ -3333,13 +3593,12 @@ export default function AdminDashboard() {
                       </span>
                     )}
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider ${
-                        viewReportModalStory.status === 'published'
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                          : viewReportModalStory.status === 'pending'
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider ${viewReportModalStory.status === 'published'
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                        : viewReportModalStory.status === 'pending'
                           ? 'bg-amber-950 text-amber-400 border border-amber-800'
                           : 'bg-red-950 text-red-400 border border-red-800'
-                      }`}
+                        }`}
                     >
                       {viewReportModalStory.status === 'published' ? 'Published Live' : viewReportModalStory.status}
                     </span>
@@ -3467,8 +3726,8 @@ export default function AdminDashboard() {
                           viewReportModalStory.videoUrl.includes('watch?v=')
                             ? viewReportModalStory.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
                             : viewReportModalStory.videoUrl.includes('youtu.be/')
-                            ? viewReportModalStory.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
-                            : viewReportModalStory.videoUrl
+                              ? viewReportModalStory.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                              : viewReportModalStory.videoUrl
                         }
                         title={viewReportModalStory.title}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -3544,11 +3803,10 @@ export default function AdminDashboard() {
                         viewReportModalStory.isBreaking
                       )
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                      viewReportModalStory.isBreaking
-                        ? 'bg-amber-400 text-slate-950 shadow'
-                        : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${viewReportModalStory.isBreaking
+                      ? 'bg-amber-400 text-slate-950 shadow'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                      }`}
                   >
                     <Flame className="w-3.5 h-3.5" />
                     {viewReportModalStory.isBreaking ? 'Breaking News (Active)' : 'Mark as Breaking'}
@@ -3563,11 +3821,10 @@ export default function AdminDashboard() {
                         viewReportModalStory.isFeatured
                       )
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                      viewReportModalStory.isFeatured
-                        ? 'bg-yellow-400 text-slate-950 shadow'
-                        : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${viewReportModalStory.isFeatured
+                      ? 'bg-yellow-400 text-slate-950 shadow'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                      }`}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {viewReportModalStory.isFeatured ? 'Top Highlight (Active)' : 'Mark as Top Highlight'}
@@ -3582,11 +3839,10 @@ export default function AdminDashboard() {
                         viewReportModalStory.isTrending
                       )
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                      viewReportModalStory.isTrending
-                        ? 'bg-rose-500 text-white shadow'
-                        : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${viewReportModalStory.isTrending
+                      ? 'bg-rose-500 text-white shadow'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                      }`}
                   >
                     <TrendingUp className="w-3.5 h-3.5" />
                     {viewReportModalStory.isTrending ? 'Top Trending (Active)' : 'Mark as Top Trending'}
@@ -3740,11 +3996,10 @@ export default function AdminDashboard() {
                               category: updated[0] || '',
                             });
                           }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isSelected
-                              ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400 font-bold'
-                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                          }`}
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                            ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400 font-bold'
+                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                            }`}
                         >
                           <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
                           <span>{c.name}</span>
@@ -3821,11 +4076,10 @@ export default function AdminDashboard() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <label className={`cursor-pointer px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${
-                        editVideoUploading
-                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-amber-950/80 hover:bg-amber-900 border-amber-800/80 text-amber-200'
-                      }`}>
+                      <label className={`cursor-pointer px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${editVideoUploading
+                        ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                        : 'bg-amber-950/80 hover:bg-amber-900 border-amber-800/80 text-amber-200'
+                        }`}>
                         <Upload className="w-3.5 h-3.5" />
                         <span>{editVideoUploading ? 'Uploading Video...' : 'Upload Video File'}</span>
                         <input

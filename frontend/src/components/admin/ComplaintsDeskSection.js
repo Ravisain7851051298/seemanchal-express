@@ -183,14 +183,10 @@ export default function ComplaintsDeskSection() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-3 rounded-t-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-950/80 border border-red-800/80 text-red-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Statutory Grievance Redressal Desk
-          </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             Grievances, Complaints & Editorial Corrections
           </h2>
@@ -201,14 +197,13 @@ export default function ComplaintsDeskSection() {
       </div>
 
       {/* Metric Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         <div
           onClick={() => setStatusFilter('all')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'all'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'all'
               ? 'bg-slate-800 border-red-500 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Total Cases
@@ -218,11 +213,10 @@ export default function ComplaintsDeskSection() {
 
         <div
           onClick={() => setStatusFilter('submitted')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'submitted'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'submitted'
               ? 'bg-blue-950/40 border-blue-500 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
             New Submissions
@@ -232,11 +226,10 @@ export default function ComplaintsDeskSection() {
 
         <div
           onClick={() => setStatusFilter('under_review')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'under_review'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'under_review'
               ? 'bg-amber-950/40 border-amber-500 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
             Under Review
@@ -246,11 +239,10 @@ export default function ComplaintsDeskSection() {
 
         <div
           onClick={() => setStatusFilter('resolved')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'resolved'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'resolved'
               ? 'bg-emerald-950/40 border-emerald-500 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
             Resolved
@@ -260,11 +252,10 @@ export default function ComplaintsDeskSection() {
 
         <div
           onClick={() => setStatusFilter('rejected')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'rejected'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'rejected'
               ? 'bg-red-950/40 border-red-500 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
             Rejected
@@ -274,11 +265,10 @@ export default function ComplaintsDeskSection() {
 
         <div
           onClick={() => setStatusFilter('closed')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'closed'
+          className={`px-3 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'closed'
               ? 'bg-slate-800 border-slate-600 shadow-md'
               : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+            }`}
         >
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Closed
@@ -288,7 +278,7 @@ export default function ComplaintsDeskSection() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-1 sm:p-2 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           <select
             value={categoryFilter}
@@ -493,11 +483,10 @@ export default function ComplaintsDeskSection() {
               {/* Resolution / Rejection Display if exists */}
               {(selectedComplaint.resolutionRemarks || selectedComplaint.rejectionReason) && (
                 <div
-                  className={`p-4 rounded-xl border space-y-1.5 ${
-                    selectedComplaint.resolutionRemarks
+                  className={`p-4 rounded-xl border space-y-1.5 ${selectedComplaint.resolutionRemarks
                       ? 'bg-emerald-950/30 border-emerald-800 text-emerald-300'
                       : 'bg-red-950/30 border-red-800 text-red-300'
-                  }`}
+                    }`}
                 >
                   <span className="font-bold uppercase text-[10px] tracking-wider block">
                     {selectedComplaint.resolutionRemarks

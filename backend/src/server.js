@@ -9,7 +9,6 @@ const cookieParser = require('cookie-parser');
 dotenv.config();
 
 const connectDB = require('./config/db');
-const { seedDatabase } = require('./utils/seedData');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -104,9 +103,8 @@ const PORT = process.env.PORT || 5005;
 const startServer = async () => {
   try {
     await connectDB();
-    await seedDatabase();
   } catch (err) {
-    console.error('Initial DB bootstrap warning:', err.message);
+    console.error('Initial DB connection warning:', err.message);
   }
 
   app.listen(PORT, () => {

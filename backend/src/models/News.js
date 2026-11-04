@@ -85,10 +85,25 @@ const newsSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  hasWatermark: {
+    type: Boolean,
+    default: false,
+  },
+  policyAccepted: {
+    type: Boolean,
+    default: true,
+  },
   views: {
     type: Number,
     default: 0,
   },
+  likes: {
+    type: Number,
+    default: 0,
+  },
+  likedBy: [{
+    type: String,
+  }],
   rejectionReason: {
     type: String,
     default: '',

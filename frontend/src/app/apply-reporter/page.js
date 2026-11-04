@@ -414,8 +414,20 @@ export default function ApplyReporterPage() {
               </div>
             </div>
 
-            {/* Submit */}
+            {/* Declaration & Privacy Policy Agreement */}
             <div className="pt-4 border-t border-slate-200">
+              <div className="bg-slate-50 p-4 rounded-xl text-[11px] text-slate-600 leading-relaxed mb-4 border border-slate-200">
+                <strong>Declaration &amp; Journalistic Ethics:</strong> By submitting this reporter application, I confirm that all submitted details are authentic. I agree to abide by the{' '}
+                <a href="/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-800 underline font-bold">
+                  Privacy Policy (गोपनीयता नीति)
+                </a>
+                ,{' '}
+                <a href="/legal/editorial-policy" target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-800 underline font-bold">
+                  Editorial Guidelines (संपादकीय नीति)
+                </a>
+                , and journalist code of ethics of Seemanchal Express.
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}

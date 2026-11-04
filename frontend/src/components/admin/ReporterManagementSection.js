@@ -155,14 +155,10 @@ export default function ReporterManagementSection() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header Card */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-3 rounded-t-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-800/80 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <Users className="w-3.5 h-3.5" />
-            Press & Editorial Bureau
-          </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             Press Reporter Management System
           </h2>
@@ -173,14 +169,13 @@ export default function ReporterManagementSection() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div
           onClick={() => setStatusFilter('all')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'all'
-              ? 'bg-slate-800 border-amber-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'all'
+            ? 'bg-slate-800 border-amber-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Total Reporters
@@ -190,11 +185,10 @@ export default function ReporterManagementSection() {
 
         <div
           onClick={() => setStatusFilter('active')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'active'
-              ? 'bg-emerald-950/40 border-emerald-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'active'
+            ? 'bg-emerald-950/40 border-emerald-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
             Active Reporters
@@ -204,11 +198,10 @@ export default function ReporterManagementSection() {
 
         <div
           onClick={() => setStatusFilter('suspended')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'suspended'
-              ? 'bg-red-950/40 border-red-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'suspended'
+            ? 'bg-red-950/40 border-red-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-red-400">
             Suspended
@@ -218,11 +211,10 @@ export default function ReporterManagementSection() {
 
         <div
           onClick={() => setStatusFilter('pending')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'pending'
-              ? 'bg-amber-950/40 border-amber-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'pending'
+            ? 'bg-amber-950/40 border-amber-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
             Pending Applications
@@ -232,7 +224,7 @@ export default function ReporterManagementSection() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-1 sm:p-2 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -525,8 +517,8 @@ export default function ReporterManagementSection() {
                             hist.newStatus === 'suspended'
                               ? 'text-red-400'
                               : hist.newStatus === 'active'
-                              ? 'text-emerald-400'
-                              : 'text-amber-400'
+                                ? 'text-emerald-400'
+                                : 'text-amber-400'
                           }
                         >
                           {hist.newStatus}
@@ -611,7 +603,7 @@ export default function ReporterManagementSection() {
                 <span className="text-slate-500">Reporting Beats:</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {viewingProfileReporter.reportingBeats &&
-                  viewingProfileReporter.reportingBeats.length > 0 ? (
+                    viewingProfileReporter.reportingBeats.length > 0 ? (
                     viewingProfileReporter.reportingBeats.map((b, i) => (
                       <span
                         key={i}

@@ -423,8 +423,16 @@ export default function ApplyMemberPage() {
 
             {/* Declaration & Submit */}
             <div className="pt-4 border-t border-slate-200">
-              <div className="bg-slate-50 p-4 rounded-xl text-[11px] text-slate-600 leading-relaxed mb-4">
-                <strong>Declaration:</strong> I hereby declare that all the information provided above is true and correct to the best of my knowledge. I pledge to adhere to the code of conduct, principles, and welfare goals of Seemanchal Express.
+              <div className="bg-slate-50 p-4 rounded-xl text-[11px] text-slate-600 leading-relaxed mb-4 border border-slate-200">
+                <strong>Declaration &amp; Terms:</strong> I hereby declare that all the information provided above is true and correct to the best of my knowledge. I pledge to adhere to the{' '}
+                <a href="/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-red-600 hover:text-red-700 underline font-bold">
+                  Privacy Policy (गोपनीयता नीति)
+                </a>
+                ,{' '}
+                <a href="/legal/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="text-red-600 hover:text-red-700 underline font-bold">
+                  Terms &amp; Conditions (नियम एवं शर्तें)
+                </a>
+                , and organizational principles of Seemanchal Express.
               </div>
 
               <button

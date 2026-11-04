@@ -61,45 +61,51 @@ const uploadVideo = multer({
 });
 
 // @route   POST /api/upload
-// @desc    Upload single file (images, docs, videos)
-router.post('/', upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) {
+// @desc    Upload single file (images, docs, videos) - supports any field name ('file', 'image', etc.)
+router.post('/', (req, res) => {
+  upload.any()(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    const uploadedFile = req.files?.[0] || req.file;
+    if (!uploadedFile) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
+    const fileUrl = `/uploads/${uploadedFile.filename}`;
     res.json({
       success: true,
       message: 'File uploaded successfully',
       fileUrl,
-      fileName: req.file.filename,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
+      url: fileUrl,
+      fileName: uploadedFile.filename,
+      size: uploadedFile.size,
+      mimetype: uploadedFile.mimetype,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
+  });
 });
 
 // @route   POST /api/upload/video
 // @desc    Upload news video file
-router.post('/video', uploadVideo.single('video'), (req, res) => {
-  try {
-    if (!req.file) {
+router.post('/video', (req, res) => {
+  uploadVideo.any()(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    const uploadedFile = req.files?.[0] || req.file;
+    if (!uploadedFile) {
       return res.status(400).json({ success: false, message: 'No video file provided' });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
+    const fileUrl = `/uploads/${uploadedFile.filename}`;
     res.json({
       success: true,
       message: 'Video uploaded successfully',
       fileUrl,
-      fileName: req.file.filename,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
+      url: fileUrl,
+      fileName: uploadedFile.filename,
+      size: uploadedFile.size,
+      mimetype: uploadedFile.mimetype,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
+  });
 });
 
 module.exports = router;

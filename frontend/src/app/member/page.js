@@ -28,6 +28,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Scale,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -69,6 +70,70 @@ export default function MemberDashboard() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ text: '', type: '' });
 
+  // Legal Policies & Compliance State
+  const [legalStatus, setLegalStatus] = useState({
+    pendingCount: 0,
+    acceptedCount: 0,
+    pendingDocuments: [],
+    acceptedDocuments: [],
+    isCompliant: true,
+  });
+  const [loadingLegalStatus, setLoadingLegalStatus] = useState(false);
+  const [reviewingPolicyDoc, setReviewingPolicyDoc] = useState(null);
+  const [policyAcceptLoading, setPolicyAcceptLoading] = useState(false);
+
+  const fetchLegalStatus = async () => {
+    try {
+      setLoadingLegalStatus(true);
+      const res = await api.get('/legal/acceptance/my-status');
+      if (res.data.success) {
+        setLegalStatus({
+          pendingCount: res.data.pendingCount || 0,
+          acceptedCount: res.data.acceptedCount || 0,
+          pendingDocuments: res.data.pendingDocuments || [],
+          acceptedDocuments: res.data.acceptedDocuments || [],
+          isCompliant: res.data.isCompliant,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load legal compliance status:', err);
+    } finally {
+      setLoadingLegalStatus(false);
+    }
+  };
+
+  const handleOpenReviewPolicy = async (doc) => {
+    setReviewingPolicyDoc({ ...doc, loadingContent: true });
+    try {
+      const res = await api.get(`/legal/view/${doc.slug}`);
+      if (res.data.success && res.data.document) {
+        setReviewingPolicyDoc(res.data.document);
+      } else {
+        setReviewingPolicyDoc(doc);
+      }
+    } catch (err) {
+      setReviewingPolicyDoc(doc);
+    }
+  };
+
+  const handleAcceptPolicy = async (docId) => {
+    try {
+      setPolicyAcceptLoading(true);
+      const res = await api.post(`/legal/acceptance/${docId}`);
+      if (res.data.success) {
+        setReviewingPolicyDoc(null);
+        await fetchLegalStatus();
+        alert('नीति / अनुबंध सफलतापूर्वक स्वीकार कर लिया गया है। (Policy accepted successfully)');
+      } else {
+        alert(res.data.message || 'Failed to accept policy');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error recording acceptance');
+    } finally {
+      setPolicyAcceptLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -105,6 +170,8 @@ export default function MemberDashboard() {
         bio: user.bio || '',
         photo: user.photo || '',
       });
+
+      fetchLegalStatus();
 
       if (user.status === 'approved') {
         fetchDocs();
@@ -352,6 +419,32 @@ export default function MemberDashboard() {
 
             <button
               onClick={() => {
+                setActiveTab('compliance');
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'compliance'
+                  ? 'bg-red-600 text-white shadow-md font-black'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Scale className="w-4 h-4" />
+                <span>Policies & Compliance</span>
+              </span>
+              {legalStatus.pendingCount > 0 ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-600 text-white animate-pulse">
+                  {legalStatus.pendingCount} Pending
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400">
+                  Verified
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
                 setActiveTab('security');
                 setSidebarOpen(false);
               }}
@@ -442,6 +535,7 @@ export default function MemberDashboard() {
               {activeTab === 'id-card' && 'Official Digital Identity Card'}
               {activeTab === 'appointment-letter' && 'Official Executive Appointment Letter'}
               {activeTab === 'committee' && 'Assigned Committee Structure'}
+              {activeTab === 'compliance' && 'Policies & Member Compliance'}
               {activeTab === 'security' && 'Member Profile & Security Settings'}
             </h2>
           </div>
@@ -462,7 +556,10 @@ export default function MemberDashboard() {
               {user.status === 'approved' ? 'Verified Member' : user.status}
             </span>
             <button
-              onClick={fetchDocs}
+              onClick={() => {
+                fetchDocs();
+                fetchLegalStatus();
+              }}
               title="Refresh"
               className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs border border-slate-700"
             >
@@ -474,6 +571,77 @@ export default function MemberDashboard() {
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* Urgent Legal & Membership Policy Compliance Alert */}
+            {legalStatus.pendingCount > 0 && (
+              <div className="bg-gradient-to-r from-rose-950 via-rose-900/90 to-amber-950/80 border-2 border-rose-600 rounded-2xl p-5 sm:p-6 shadow-2xl">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md mt-0.5">
+                      <AlertCircle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/30 text-rose-300 border border-rose-500/40">
+                          Pending Compliance
+                        </span>
+                        <span className="text-xs text-rose-200 font-bold">
+                          {legalStatus.pendingCount} Mandatory Policy {legalStatus.pendingCount === 1 ? 'Agreement' : 'Agreements'} Pending
+                        </span>
+                      </div>
+                      <h4 className="text-base sm:text-lg font-black text-white mt-1">
+                        सदस्यता एवं विधिक नीतियों की स्वीकृति लंबित है
+                      </h4>
+                      <p className="text-xs text-rose-100/90 mt-1 max-w-2xl leading-relaxed">
+                        नमस्कार {user?.name || 'सदस्य'} जी, संगठन दिशा-निर्देशों के तहत आपकी <strong>{legalStatus.pendingCount}</strong> विधिक व सदस्यता नीतियां लंबित हैं। कृपया नीचे दिए गए लिंक से इन्हें पढ़ें और स्वीकार करें।
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('compliance')}
+                    className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl shadow-lg transition-transform active:scale-95 shrink-0 flex items-center gap-2"
+                  >
+                    <Scale className="w-4 h-4" />
+                    <span>View All Policies ({legalStatus.pendingCount}) →</span>
+                  </button>
+                </div>
+
+                {/* Quick Links to Pending Policies */}
+                <div className="mt-4 pt-4 border-t border-rose-800/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {legalStatus.pendingDocuments.map((doc) => (
+                    <div
+                      key={doc._id}
+                      className="bg-slate-950/70 border border-rose-800/60 rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{doc.title}</p>
+                        <span className="text-[10px] text-rose-300 capitalize">
+                          v{doc.version || 1}.0 • {doc.category || 'Member'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Link
+                          href={`/legal/${doc.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition-colors border border-slate-700"
+                          title="Open & Read Full Policy"
+                        >
+                          <span>पढ़ें</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReviewPolicy(doc)}
+                          className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white text-[11px] font-black rounded-lg transition-colors shadow-sm"
+                        >
+                          स्वीकारें
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Status Alert if not approved */}
             {isPending && (
               <div className="p-4 bg-amber-950/60 border border-amber-800 rounded-2xl flex items-start gap-3">
@@ -718,6 +886,264 @@ export default function MemberDashboard() {
           </div>
         )}
 
+        {/* TAB: LEGAL & MEMBERSHIP POLICIES COMPLIANCE */}
+        {activeTab === 'compliance' && (
+          <div className="space-y-6 max-w-5xl mx-auto">
+            {/* Compliance Status Banner */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                      legalStatus.pendingCount === 0
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-rose-600 text-white'
+                    }`}
+                  >
+                    <Scale className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-wider uppercase text-red-400">
+                      Organizational Governance
+                    </span>
+                    <h3 className="text-xl font-black text-white">
+                      Policies & Member Compliance Console
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      सदस्यता आचार संहिता, संगठन नीतियां एवं विधिक नियम
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {legalStatus.pendingCount === 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-600 text-emerald-400 text-xs font-black shadow-sm">
+                      <CheckCircle2 className="w-4 h-4" /> All Mandatory Policies Accepted
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-600 text-rose-400 text-xs font-black animate-pulse shadow-sm">
+                      <AlertCircle className="w-4 h-4" /> {legalStatus.pendingCount} Action Pending
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Summary Counter */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 block mb-1">
+                    Lapsed / Pending Acceptance
+                  </span>
+                  <strong
+                    className={`text-2xl font-black ${
+                      legalStatus.pendingCount > 0 ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  >
+                    {legalStatus.pendingCount}
+                  </strong>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    Acceptance required immediately
+                  </span>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 block mb-1">
+                    Signed & Accepted Policies
+                  </span>
+                  <strong className="text-2xl font-black text-emerald-400">
+                    {legalStatus.acceptedCount}
+                  </strong>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    Digitally archived with timestamp
+                  </span>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 block mb-1">Membership Status</span>
+                  <strong className="text-2xl font-black text-red-400">
+                    {legalStatus.pendingCount === 0 ? 'Good Standing' : 'Pending Verification'}
+                  </strong>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    IT Act Sec 10A Compliance
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 1. Pending Policies Section */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+                <div>
+                  <h4 className="text-base font-black text-white flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-500" />
+                    स्वीकृति हेतु लंबित नीतियां (Mandatory Pending Policies)
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    संगठन के अधिकृत सदस्य के रूप में सक्रिय रहने हेतु निम्नलिखित नीतियों को पढ़ना व स्वीकार करना अनिवार्य है।
+                  </p>
+                </div>
+                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 border border-rose-800">
+                  {legalStatus.pendingCount} Pending
+                </span>
+              </div>
+
+              {legalStatus.pendingDocuments && legalStatus.pendingDocuments.length > 0 ? (
+                <div className="space-y-4">
+                  {legalStatus.pendingDocuments.map((doc) => (
+                    <div
+                      key={doc._id}
+                      className="p-5 rounded-2xl bg-slate-950/80 border border-rose-900/50 hover:border-rose-700/80 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800">
+                            Action Pending
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                            Category: {doc.category || 'Member'}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">
+                            Version {doc.version || 1}.0
+                          </span>
+                        </div>
+                        <h5 className="text-base font-bold text-white group-hover:text-red-400 transition-colors">
+                          {doc.title}
+                        </h5>
+                        <p className="text-xs text-slate-400 leading-relaxed max-w-3xl">
+                          {doc.summary || 'संगठन नियमावली, सदस्यता आचार संहिता और विधिक अनुपालन नियम।'}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-900">
+                        <Link
+                          href={`/legal/${doc.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
+                          title="Open policy in new tab to read full details"
+                        >
+                          <span>नीति पढ़ें (Read Policy)</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReviewPolicy(doc)}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black inline-flex items-center gap-1.5 transition-transform active:scale-95 shadow-md shadow-red-950/40"
+                        >
+                          <Scale className="w-3.5 h-3.5" />
+                          <span>समीक्षा करें व स्वीकारें</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-white">सभी अनिवार्य नीतियां स्वीकृत हैं!</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    आपके खाते से संबंधित कोई भी कानूनी अथवा सदस्यता नीति लंबित नहीं है।
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Accepted Policies History Section */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+                <div>
+                  <h4 className="text-base font-black text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    स्वीकृत नीतियां एवं ऑडिट लॉग (Signed & Accepted Policies)
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    आपके द्वारा स्वीकार की गई सदस्यता नीतियां एवं उनके डिजिटल साक्ष्य।
+                  </p>
+                </div>
+                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+                  {legalStatus.acceptedCount} Signed
+                </span>
+              </div>
+
+              {legalStatus.acceptedDocuments && legalStatus.acceptedDocuments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {legalStatus.acceptedDocuments.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl bg-slate-950 border border-emerald-900/40 flex items-start justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <h6 className="text-xs font-bold text-white">
+                            {item.document?.title || item.acceptance?.documentTitle}
+                          </h6>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Accepted on:{' '}
+                          {item.acceptance?.acceptedAt
+                            ? new Date(item.acceptance.acceptedAt).toLocaleDateString('hi-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Verified'}
+                        </p>
+                        <span className="text-[10px] text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800 inline-block">
+                          Version {item.document?.version || item.acceptance?.versionNumber || 1}.0 • Fully Compliant
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/legal/${item.document?.slug || item.acceptance?.documentSlug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                        title="View Document"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 text-center py-6">
+                  अभी तक कोई स्वीकृति दर्ज नहीं की गई है।
+                </p>
+              )}
+            </div>
+
+            {/* 3. General Public Policies Links */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-sm">
+              <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                All Portal Public Policies (सार्वजनिक नीतियां एवं दिशानिर्देश)
+              </h5>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {[
+                  { name: 'Membership Policy', slug: 'membership-policy' },
+                  { name: 'Member Code of Conduct', slug: 'member-code-of-conduct' },
+                  { name: 'ID Card Usage Policy', slug: 'id-card-usage-policy' },
+                  { name: 'Privacy Policy', slug: 'privacy-policy' },
+                  { name: 'Terms & Conditions', slug: 'terms-and-conditions' },
+                  { name: 'Grievance Redressal', slug: 'grievance-redressal' },
+                ].map((item, i) => (
+                  <Link
+                    key={i}
+                    href={`/legal/${item.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1.5"
+                  >
+                    <span>{item.name}</span>
+                    <ExternalLink className="w-3 h-3 text-slate-500" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 5: PROFILE & SECURITY */}
         {activeTab === 'security' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
@@ -938,6 +1364,123 @@ export default function MemberDashboard() {
                   {passwordLoading ? 'Updating Password...' : 'Save New Password'}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: Review & Accept Legal Document */}
+        {reviewingPolicyDoc && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border-2 border-red-600/80 rounded-2xl w-full max-w-3xl text-white max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative animate-fade-in">
+              {/* Modal Header */}
+              <div className="p-5 sm:p-6 bg-slate-950 border-b border-slate-800 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800">
+                      Mandatory Policy Agreement
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      Version {reviewingPolicyDoc.version || 1}.0
+                    </span>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                      {reviewingPolicyDoc.category || 'Member'}
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-white">
+                    {reviewingPolicyDoc.title}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    सीमांचल एक्सप्रेस सदस्यता एवं विधिक नीति समीक्षा
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewingPolicyDoc(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-slate-300 text-xs sm:text-sm">
+                {/* External Read Link Bar */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      पूर्ण नीति दस्तावेज़ पढ़ें (Read Full Policy Document)
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      आप इसे नए टैब में पूरा विस्तार से पढ़ सकते हैं:
+                    </span>
+                  </div>
+                  <Link
+                    href={`/legal/${reviewingPolicyDoc.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors border border-slate-700 shadow-sm"
+                  >
+                    <span>/legal/{reviewingPolicyDoc.slug}</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {reviewingPolicyDoc.summary && (
+                  <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+                    <strong className="text-red-400 block mb-1">दस्तावेज़ सारांश (Summary):</strong>
+                    {reviewingPolicyDoc.summary}
+                  </div>
+                )}
+
+                {/* Markdown Content */}
+                <div className="p-4 sm:p-5 rounded-xl bg-slate-950/80 border border-slate-800 max-h-72 overflow-y-auto text-xs leading-relaxed">
+                  {reviewingPolicyDoc.content ? (
+                    <MarkdownView content={reviewingPolicyDoc.content} isDark={true} />
+                  ) : reviewingPolicyDoc.loadingContent ? (
+                    <div className="py-8 text-center text-slate-500 animate-pulse">
+                      Loading full policy text...
+                    </div>
+                  ) : (
+                    <p className="text-slate-400">
+                      विस्तृत नीति पढ़ने के लिए कृपया ऊपर दिए गए लिंक पर क्लिक करें।
+                    </p>
+                  )}
+                </div>
+
+                {/* Digital Acceptance Declaration */}
+                <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-900/60 text-[11px] text-slate-300 flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    मैं (<strong className="text-white">{user?.name || 'सदस्य'}</strong>) घोषणा करता हूँ कि मैंने <strong className="text-red-400">"{reviewingPolicyDoc.title}"</strong> को ध्यानपूर्वक पढ़ व समझ लिया है। मैं संगठन के अधिकृत सदस्य के रूप में इसके सभी नियमों, आचार संहिता और विधिक शर्तों का निष्ठापूर्वक पालन करने हेतु अपनी डिजिटल स्वीकृति देता हूँ।
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() => setReviewingPolicyDoc(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  बंद करें (Close)
+                </button>
+                <button
+                  type="button"
+                  disabled={policyAcceptLoading}
+                  onClick={() => handleAcceptPolicy(reviewingPolicyDoc._id)}
+                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs rounded-xl transition-all shadow-lg shadow-red-950/60 flex items-center gap-2 disabled:opacity-50"
+                >
+                  {policyAcceptLoading ? (
+                    'स्वीकृति दर्ज हो रही है...'
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>मैं स्वीकार करता हूँ (I Agree & Accept Policy)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

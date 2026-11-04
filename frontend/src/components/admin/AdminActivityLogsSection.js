@@ -76,14 +76,10 @@ export default function AdminActivityLogsSection() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider mb-2">
-            <History className="w-3.5 h-3.5 text-sky-400" />
-            Security & Compliance Audit Trail
-          </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             Administrative Activity Logs
           </h2>
@@ -101,7 +97,7 @@ export default function AdminActivityLogsSection() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-1 sm:p-2 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           <select
             value={moduleFilter}

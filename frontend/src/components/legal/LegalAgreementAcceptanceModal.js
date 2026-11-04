@@ -10,34 +10,29 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronRight,
+  X,
 } from 'lucide-react';
+import api from '../../lib/api';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005').replace(/\/api\/?$/, '');
-
-export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAccepted }) {
+export default function LegalAgreementAcceptanceModal({ token, userRole = 'reporter', onAllAccepted, onClose }) {
   const [pendingDocs, setPendingDocs] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState('');
   const [fullDoc, setFullDoc] = useState(null);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (token) {
-      checkPendingAgreements();
-    }
-  }, [token]);
+    checkPendingAgreements();
+  }, []);
 
   const checkPendingAgreements = async () => {
     try {
       setLoading(true);
       setError('');
-      const res = await fetch(`${API_BASE}/api/legal/acceptance/my-pending`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
+      const res = await api.get('/legal/acceptance/my-pending');
+      const data = res.data;
       if (data.success && data.pendingDocuments && data.pendingDocuments.length > 0) {
         setPendingDocs(data.pendingDocuments);
         loadDocDetails(data.pendingDocuments[0].slug);
@@ -54,8 +49,8 @@ export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAc
 
   const loadDocDetails = async (slug) => {
     try {
-      const res = await fetch(`${API_BASE}/api/legal/view/${slug}`);
-      const data = await res.json();
+      const res = await api.get(`/legal/view/${slug}`);
+      const data = res.data;
       if (data.success && data.document) {
         setFullDoc(data.document);
       }
@@ -68,14 +63,8 @@ export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAc
     try {
       setAccepting(true);
       setError('');
-      const res = await fetch(`${API_BASE}/api/legal/acceptance/${docId}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const data = await res.json();
+      const res = await api.post(`/legal/acceptance/${docId}`);
+      const data = res.data;
       if (data.success) {
         const nextIndex = currentIndex + 1;
         if (nextIndex < pendingDocs.length) {
@@ -89,13 +78,13 @@ export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAc
         setError(data.message || 'Failed to record acceptance.');
       }
     } catch (err) {
-      setError('Connection error while recording acceptance.');
+      setError(err.response?.data?.message || 'Connection error while recording acceptance.');
     } finally {
       setAccepting(false);
     }
   };
 
-  if (loading || pendingDocs.length === 0) {
+  if (dismissed || loading || pendingDocs.length === 0) {
     return null;
   }
 
@@ -117,6 +106,17 @@ export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAc
               Document {currentIndex + 1} of {pendingDocs.length} required for your {userRole} role.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDismissed(true);
+              if (onClose) onClose();
+            }}
+            title="Review Later in Profile"
+            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Modal Body - Scrollable Document Review */}
@@ -128,16 +128,50 @@ export default function LegalAgreementAcceptanceModal({ token, userRole, onAllAc
             </div>
           )}
 
-          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-base font-bold text-white">{currentDoc.title}</h4>
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-300">
-                Version {currentDoc.version || 1}.0
-              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/legal/${currentDoc.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold text-xs inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                  title="Open and read full policy page in a new window"
+                >
+                  <span>Open Full Policy (नीति पढ़ें)</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-300">
+                  Version {currentDoc.version || 1}.0
+                </span>
+              </div>
             </div>
             {currentDoc.summary && (
               <p className="text-xs text-slate-400 leading-relaxed">{currentDoc.summary}</p>
             )}
+            <div className="pt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-400 border-t border-slate-900">
+              <span>Related Essential Links:</span>
+              <a
+                href="/legal/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-400 hover:text-amber-300 underline font-semibold inline-flex items-center gap-1"
+              >
+                <span>Privacy Policy (गोपनीयता नीति)</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <span>•</span>
+              <a
+                href="/legal/terms-and-conditions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-400 hover:text-amber-300 underline font-semibold inline-flex items-center gap-1"
+              >
+                <span>Terms &amp; Conditions (नियम व शर्तें)</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
 
           {/* Full content if loaded */}

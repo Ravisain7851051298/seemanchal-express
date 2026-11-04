@@ -4,6 +4,7 @@ const LegalDocument = require('../models/LegalDocument');
 const LegalDocumentVersion = require('../models/LegalDocumentVersion');
 const LegalDocumentAcceptance = require('../models/LegalDocumentAcceptance');
 const AdminActivityLog = require('../models/AdminActivityLog');
+const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 
 // Utility for slugification
@@ -101,7 +102,7 @@ router.get('/acceptance/my-pending', protect, async (req, res) => {
       status: 'published',
       isDeleted: false,
       isMandatoryFor: userRole,
-    }).select('title slug version effectiveDate lastUpdated summary');
+    }).select('title slug category summary version effectiveDate lastUpdated isMandatoryFor');
 
     const pendingDocuments = [];
 
@@ -121,6 +122,67 @@ router.get('/acceptance/my-pending', protect, async (req, res) => {
       success: true,
       pendingCount: pendingDocuments.length,
       pendingDocuments,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   GET /api/legal/acceptance/my-status
+// @desc    Get user's full legal status: pending mandatory agreements + accepted agreements history
+router.get('/acceptance/my-status', protect, async (req, res) => {
+  try {
+    const userRole = req.user.role;
+    if (userRole === 'admin') {
+      return res.json({
+        success: true,
+        isCompliant: true,
+        pendingCount: 0,
+        pendingDocuments: [],
+        acceptedDocuments: [],
+      });
+    }
+
+    // 1. Mandatory docs for this user's role
+    const mandatoryDocs = await LegalDocument.find({
+      status: 'published',
+      isDeleted: false,
+      isMandatoryFor: userRole,
+    }).select('title slug category summary version effectiveDate lastUpdated isMandatoryFor');
+
+    const pendingDocuments = [];
+    const acceptedDocuments = [];
+
+    for (const doc of mandatoryDocs) {
+      const acceptance = await LegalDocumentAcceptance.findOne({
+        userId: req.user._id,
+        documentId: doc._id,
+        versionNumber: doc.version,
+      }).sort({ acceptedAt: -1 });
+
+      if (!acceptance) {
+        pendingDocuments.push(doc);
+      } else {
+        acceptedDocuments.push({
+          document: doc,
+          acceptance,
+        });
+      }
+    }
+
+    // All acceptances recorded by this user
+    const allUserAcceptances = await LegalDocumentAcceptance.find({
+      userId: req.user._id,
+    }).sort({ acceptedAt: -1 });
+
+    res.json({
+      success: true,
+      isCompliant: pendingDocuments.length === 0,
+      pendingCount: pendingDocuments.length,
+      acceptedCount: acceptedDocuments.length,
+      pendingDocuments,
+      acceptedDocuments,
+      allAcceptances: allUserAcceptances,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -514,6 +576,100 @@ router.get('/admin/acceptances', protect, authorize('admin'), async (req, res) =
       page: Number(page),
       totalPages: Math.ceil(total / Number(limit)),
       acceptances,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @route   GET /api/legal/admin/compliance-audit
+// @desc    View who does NOT accept policy, the type of policy, and their role (Reporter or Member)
+router.get('/admin/compliance-audit', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { role, documentSlug, search } = req.query;
+
+    // 1. Get all published mandatory legal documents
+    const docQuery = {
+      status: 'published',
+      isDeleted: false,
+      isMandatoryFor: { $in: ['reporter', 'member'] },
+    };
+    if (documentSlug && documentSlug !== 'all') {
+      docQuery.slug = documentSlug;
+    }
+
+    const mandatoryDocs = await LegalDocument.find(docQuery).select(
+      'title slug category version effectiveDate isMandatoryFor'
+    );
+
+    // 2. Query approved / active users
+    const userQuery = {
+      role: { $in: ['reporter', 'member'] },
+      status: { $in: ['approved', 'active'] },
+    };
+    if (role && role !== 'all') {
+      userQuery.role = role;
+    }
+    if (search && search.trim()) {
+      userQuery.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { email: { $regex: search.trim(), $options: 'i' } },
+        { phone: { $regex: search.trim(), $options: 'i' } },
+      ];
+    }
+
+    const users = await User.find(userQuery).select(
+      'name email phone role status assignedDesignation assignedLocation committeeLevel idCardNumber photo createdAt'
+    );
+
+    // 3. For each user, check which mandatory documents for their role are unaccepted
+    const pendingAudit = [];
+
+    for (const u of users) {
+      const userMandatoryDocs = mandatoryDocs.filter(
+        (d) => Array.isArray(d.isMandatoryFor) && d.isMandatoryFor.includes(u.role)
+      );
+
+      const unacceptedDocuments = [];
+
+      for (const d of userMandatoryDocs) {
+        const acceptance = await LegalDocumentAcceptance.findOne({
+          userId: u._id,
+          documentId: d._id,
+          versionNumber: d.version,
+        });
+
+        if (!acceptance) {
+          unacceptedDocuments.push({
+            _id: d._id,
+            title: d.title,
+            slug: d.slug,
+            category: d.category,
+            version: d.version,
+            effectiveDate: d.effectiveDate,
+          });
+        }
+      }
+
+      if (unacceptedDocuments.length > 0) {
+        pendingAudit.push({
+          user: u,
+          unacceptedDocuments,
+          unacceptedCount: unacceptedDocuments.length,
+        });
+      }
+    }
+
+    const totalReportersPending = pendingAudit.filter((p) => p.user.role === 'reporter').length;
+    const totalMembersPending = pendingAudit.filter((p) => p.user.role === 'member').length;
+
+    res.json({
+      success: true,
+      totalPendingUsers: pendingAudit.length,
+      totalReportersPending,
+      totalMembersPending,
+      mandatoryDocs,
+      audit: pendingAudit,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

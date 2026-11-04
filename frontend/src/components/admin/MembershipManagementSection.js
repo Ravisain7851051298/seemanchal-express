@@ -2,22 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Users,
-  Shield,
   Clock,
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
   Search,
-  Filter,
   History,
   Calendar,
   X,
-  CreditCard,
-  Layers,
-  MapPin,
-  Check,
   Award,
+  UserX,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import api from '../../lib/api';
 import getMediaUrl from '../../lib/imageHelper';
@@ -56,9 +52,83 @@ export default function MembershipManagementSection() {
   // History Modal
   const [viewingHistoryMember, setViewingHistoryMember] = useState(null);
 
+  // Unified Action Menu & Designation Control States
+  const [activeActionMenu, setActiveActionMenu] = useState(null);
+  const [changingDesignationMember, setChangingDesignationMember] = useState(null);
+  const [designationForm, setDesignationForm] = useState({
+    assignedDesignation: '',
+    committeeLevel: 'District',
+    assignedLocation: '',
+  });
+  const [positionsList, setPositionsList] = useState([]);
+
   useEffect(() => {
     fetchMembers();
   }, [statusFilter, levelFilter]);
+
+  useEffect(() => {
+    api.get('/positions')
+      .then((res) => {
+        if (res.data.success) {
+          setPositionsList(res.data.positions || []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleOpenChangeDesignation = (member) => {
+    setChangingDesignationMember(member);
+    setDesignationForm({
+      assignedDesignation: member.assignedDesignation || '',
+      committeeLevel: member.committeeLevel || 'District',
+      assignedLocation: member.assignedLocation || '',
+    });
+  };
+
+  const handleConfirmChangeDesignation = async (e) => {
+    e.preventDefault();
+    if (!designationForm.assignedDesignation.trim()) {
+      alert('Please enter or select a designation title.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const res = await api.put(`/admin/users/${changingDesignationMember._id}`, {
+        assignedDesignation: designationForm.assignedDesignation.trim(),
+        committeeLevel: designationForm.committeeLevel,
+        assignedLocation: designationForm.assignedLocation.trim(),
+      });
+      if (res.data.success) {
+        setChangingDesignationMember(null);
+        fetchMembers();
+        alert('Designation successfully updated.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update designation');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveDesignation = async (member) => {
+    if (!confirm(`Are you sure you want to remove the designation "${member.assignedDesignation || 'Assigned Title'}" from ${member.name}?`)) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const res = await api.put(`/admin/users/${member._id}`, {
+        assignedDesignation: '',
+      });
+      if (res.data.success) {
+        fetchMembers();
+        alert(`Designation removed successfully for ${member.name}.`);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to remove designation');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fetchMembers = async () => {
     try {
@@ -195,14 +265,10 @@ export default function MembershipManagementSection() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-3 rounded-t-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-950/80 border border-blue-800/80 text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <Users className="w-3.5 h-3.5" />
-            Institutional Committee Governance
-          </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             Membership Management & Expiry Control
           </h2>
@@ -213,14 +279,13 @@ export default function MembershipManagementSection() {
       </div>
 
       {/* Metric Counters */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div
           onClick={() => setStatusFilter('all')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'all'
-              ? 'bg-slate-800 border-blue-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'all'
+            ? 'bg-slate-800 border-blue-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Total Members
@@ -230,11 +295,10 @@ export default function MembershipManagementSection() {
 
         <div
           onClick={() => setStatusFilter('active')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'active'
-              ? 'bg-emerald-950/40 border-emerald-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'active'
+            ? 'bg-emerald-950/40 border-emerald-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
             Active Members
@@ -244,11 +308,10 @@ export default function MembershipManagementSection() {
 
         <div
           onClick={() => setStatusFilter('expired')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'expired'
-              ? 'bg-amber-950/40 border-amber-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'expired'
+            ? 'bg-amber-950/40 border-amber-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
             Expired Memberships
@@ -258,11 +321,10 @@ export default function MembershipManagementSection() {
 
         <div
           onClick={() => setStatusFilter('suspended')}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            statusFilter === 'suspended'
-              ? 'bg-red-950/40 border-red-500 shadow-md'
-              : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
-          }`}
+          className={`px-4 py-2 flex items-center flex-col rounded-b-xl border cursor-pointer transition-all ${statusFilter === 'suspended'
+            ? 'bg-red-950/40 border-red-500 shadow-md'
+            : 'bg-slate-900 border-slate-800 hover:bg-slate-850'
+            }`}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-red-400">
             Suspended
@@ -272,7 +334,7 @@ export default function MembershipManagementSection() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-1 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           <select
             value={levelFilter}
@@ -383,9 +445,8 @@ export default function MembershipManagementSection() {
                         {mem.membershipExpiryDate ? (
                           <div>
                             <span
-                              className={`font-semibold block ${
-                                isExpired ? 'text-amber-400' : 'text-slate-300'
-                              }`}
+                              className={`font-semibold block ${isExpired ? 'text-amber-400' : 'text-slate-300'
+                                }`}
                             >
                               {new Date(mem.membershipExpiryDate).toLocaleDateString()}
                             </span>
@@ -401,45 +462,112 @@ export default function MembershipManagementSection() {
                       {/* Status */}
                       <td className="py-3 px-4 text-center">{getMembershipBadge(mem)}</td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Renew Button */}
+                      {/* Actions Unified Box */}
+                      <td className="py-3 px-4 text-right relative">
+                        <div className="inline-block text-left">
                           <button
-                            onClick={() => handleOpenRenew(mem)}
-                            className="px-2.5 py-1.5 rounded-lg bg-blue-950 hover:bg-blue-900/60 text-blue-400 border border-blue-800 font-bold text-[11px] flex items-center gap-1 transition-all"
-                            title="Renew Membership Term"
+                            type="button"
+                            onClick={() => setActiveActionMenu(activeActionMenu === mem._id ? null : mem._id)}
+                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                           >
-                            <Calendar className="w-3 h-3" /> Renew
+                            <span>Action</span>
+                            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeActionMenu === mem._id ? 'rotate-180' : ''}`} />
                           </button>
 
-                          {/* Suspend or Restore */}
-                          {isSuspended ? (
-                            <button
-                              onClick={() => handleAction(mem, 'activate')}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-all"
-                              title="Restore Membership"
-                            >
-                              <RotateCcw className="w-3 h-3" /> Activate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenSuspend(mem)}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-400 transition-colors"
-                              title="Suspend Member"
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                            </button>
+                          {activeActionMenu === mem._id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-30"
+                                onClick={() => setActiveActionMenu(null)}
+                              />
+                              <div className="absolute right-4 mt-1.5 w-56 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs">
+                                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                                  Action: {mem.name}
+                                </div>
+
+                                {/* Change Designation */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenu(null);
+                                    handleOpenChangeDesignation(mem);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-blue-950/70 hover:text-blue-300 font-semibold transition-colors text-left"
+                                >
+                                  <Award className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                  <span>Change Designation</span>
+                                </button>
+
+                                {/* Remove Designation */}
+                                {mem.assignedDesignation && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenu(null);
+                                      handleRemoveDesignation(mem);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-950/70 font-semibold transition-colors text-left"
+                                  >
+                                    <UserX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                    <span>Remove Designation</span>
+                                  </button>
+                                )}
+
+                                {/* Renew Validity */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenu(null);
+                                    handleOpenRenew(mem);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-emerald-950/70 hover:text-emerald-300 font-semibold transition-colors text-left"
+                                >
+                                  <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span>Renew Membership Term</span>
+                                </button>
+
+                                {/* Suspend or Activate */}
+                                {isSuspended ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenu(null);
+                                      handleAction(mem, 'activate');
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-emerald-300 hover:bg-emerald-950/70 font-semibold transition-colors text-left"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span>Activate / Restore Member</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenu(null);
+                                      handleOpenSuspend(mem);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-amber-300 hover:bg-amber-950/70 font-semibold transition-colors text-left"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                    <span>Suspend Member</span>
+                                  </button>
+                                )}
+
+                                {/* View History */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenu(null);
+                                    setViewingHistoryMember(mem);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-semibold transition-colors border-t border-slate-800/80 pt-1.5 text-left"
+                                >
+                                  <History className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                  <span>Membership History</span>
+                                </button>
+                              </div>
+                            </>
                           )}
-
-                          {/* History */}
-                          <button
-                            onClick={() => setViewingHistoryMember(mem)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 transition-colors"
-                            title="View Membership History"
-                          >
-                            <History className="w-3.5 h-3.5" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -669,6 +797,122 @@ export default function MembershipManagementSection() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* CHANGE DESIGNATION MODAL */}
+      {changingDesignationMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-slate-900 border border-blue-800 rounded-2xl shadow-2xl p-6 space-y-5">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold uppercase text-blue-400 tracking-wider flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5" /> Administrative Designation
+                </span>
+                <h3 className="text-lg font-bold text-white">
+                  Change Designation: {changingDesignationMember.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChangingDesignationMember(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmChangeDesignation} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">Committee Level / Tier</label>
+                <select
+                  value={designationForm.committeeLevel}
+                  onChange={(e) => {
+                    const newLevel = e.target.value;
+                    setDesignationForm((prev) => ({ ...prev, committeeLevel: newLevel }));
+                  }}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="National">National Executive Committee</option>
+                  <option value="State">State Executive Committee</option>
+                  <option value="District">District Executive Committee</option>
+                  <option value="Block">Block / Taluka Committee</option>
+                  <option value="Panchayat">Gram Panchayat Committee</option>
+                  <option value="Ward">Ward Committee</option>
+                  <option value="General">General / Non-Executive</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">
+                  Select Predefined Designation or Enter Custom
+                </label>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setDesignationForm((prev) => ({ ...prev, assignedDesignation: e.target.value }));
+                    }
+                  }}
+                  defaultValue=""
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 focus:outline-none focus:border-blue-500 mb-2"
+                >
+                  <option value="">-- Choose from Sanctioned Positions --</option>
+                  {positionsList
+                    .filter((p) => !designationForm.committeeLevel || p.committeeLevel === designationForm.committeeLevel)
+                    .map((p) => (
+                      <option key={p._id} value={p.title}>
+                        {p.title} ({p.committeeLevel})
+                      </option>
+                    ))}
+                </select>
+
+                <input
+                  type="text"
+                  required
+                  placeholder="Designation Title (e.g. State Secretary, District Coordinator...)"
+                  value={designationForm.assignedDesignation}
+                  onChange={(e) =>
+                    setDesignationForm((prev) => ({ ...prev, assignedDesignation: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-blue-500 font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">Assigned Area / Jurisdiction</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Purnea, Kishanganj, Araria, Katihar..."
+                  value={designationForm.assignedLocation}
+                  onChange={(e) =>
+                    setDesignationForm((prev) => ({ ...prev, assignedLocation: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-900/50 text-slate-400 text-[11px]">
+                Updating this designation will immediately reflect on the member&apos;s Digital ID Card, Appointment Letter, and public Team roster.
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChangingDesignationMember(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  {actionLoading ? 'Saving...' : 'Save Designation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

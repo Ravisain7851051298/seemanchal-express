@@ -7,13 +7,7 @@ import {
   AlertCircle,
   Save,
   Globe,
-  FileCheck,
   MapPin,
-  Phone,
-  Mail,
-  Clock,
-  Trash2,
-  ExternalLink,
   ShieldCheck,
   BookOpen,
   Award,
@@ -234,11 +228,11 @@ export default function SiteSettingsSection() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="px-6 py-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
             <Award className="w-5 h-5 text-amber-400" />
             <span>Institutional Settings & Credentials (संस्थागत सेटिंग्स)</span>
           </h2>
@@ -251,7 +245,7 @@ export default function SiteSettingsSection() {
           type="button"
           onClick={handleSaveSettings}
           disabled={saving}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           <span>{saving ? 'Saving Changes...' : 'Save & Publish All'}</span>
@@ -278,11 +272,10 @@ export default function SiteSettingsSection() {
         <button
           type="button"
           onClick={() => setActiveSubTab('credentials')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeSubTab === 'credentials'
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'credentials'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <Award className="w-3.5 h-3.5" />
           <span>Official Seal & Signature</span>
@@ -291,11 +284,10 @@ export default function SiteSettingsSection() {
         <button
           type="button"
           onClick={() => setActiveSubTab('social')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeSubTab === 'social'
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'social'
               ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <Globe className="w-3.5 h-3.5" />
           <span>Social Media Channels</span>
@@ -304,11 +296,10 @@ export default function SiteSettingsSection() {
         <button
           type="button"
           onClick={() => setActiveSubTab('about')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeSubTab === 'about'
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'about'
               ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
           <span>About Us Page Content</span>
@@ -317,11 +308,10 @@ export default function SiteSettingsSection() {
         <button
           type="button"
           onClick={() => setActiveSubTab('contact')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeSubTab === 'contact'
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'contact'
               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
+            }`}
         >
           <MapPin className="w-3.5 h-3.5" />
           <span>Contact Us & Headquarters</span>

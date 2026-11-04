@@ -296,6 +296,58 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
+// @route   POST /api/news/:id/like
+// @desc    Toggle like / unlike for a news article
+router.post('/:id/like', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clientId } = req.body;
+    const identifier = clientId || req.ip || 'anonymous-user';
+
+    let news = null;
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      news = await News.findById(id);
+    }
+    if (!news) {
+      news = await News.findOne({ slug: id });
+    }
+
+    if (!news) {
+      return res.status(404).json({ success: false, message: 'News article not found' });
+    }
+
+    if (!Array.isArray(news.likedBy)) {
+      news.likedBy = [];
+    }
+
+    const likedIndex = news.likedBy.indexOf(identifier);
+    let isLiked = false;
+
+    if (likedIndex > -1) {
+      // Unlike
+      news.likedBy.splice(likedIndex, 1);
+      news.likes = Math.max(0, (news.likes || 1) - 1);
+      isLiked = false;
+    } else {
+      // Like
+      news.likedBy.push(identifier);
+      news.likes = (news.likes || 0) + 1;
+      isLiked = true;
+    }
+
+    await news.save();
+
+    res.json({
+      success: true,
+      isLiked,
+      likes: news.likes,
+      message: isLiked ? 'News liked' : 'News unliked',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // @route   POST /api/news
 // @desc    Create news (Reporter creates as 'pending', Admin creates as 'published')
 router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
@@ -314,6 +366,8 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       isBreaking,
       isFeatured,
       isTrending,
+      hasWatermark,
+      policyAccepted,
     } = req.body;
 
     // Collect all category IDs (support array or single category string)
@@ -367,6 +421,8 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       isBreaking: isAdmin ? Boolean(isBreaking) : false,
       isFeatured: isAdmin ? Boolean(isFeatured) : false,
       isTrending: isAdmin ? Boolean(isTrending) : false,
+      hasWatermark: Boolean(hasWatermark),
+      policyAccepted: policyAccepted !== undefined ? Boolean(policyAccepted) : true,
       publishedAt: status === 'published' ? new Date() : null,
     });
 
@@ -399,7 +455,7 @@ router.put('/:id', protect, authorize('admin', 'reporter'), async (req, res) => 
       return res.status(403).json({ success: false, message: 'Not authorized to edit this article' });
     }
 
-    const fields = ['title', 'subtitle', 'content', 'thumbnail', 'videoUrl', 'images', 'tags', 'location'];
+    const fields = ['title', 'subtitle', 'content', 'thumbnail', 'videoUrl', 'images', 'tags', 'location', 'hasWatermark', 'policyAccepted'];
     fields.forEach((field) => {
       if (req.body[field] !== undefined) news[field] = req.body[field];
     });

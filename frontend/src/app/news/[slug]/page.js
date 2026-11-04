@@ -5,15 +5,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   Calendar,
-  Clock,
   MapPin,
   Eye,
-  Share2,
+  Heart,
   ChevronRight,
   ArrowLeft,
-  Check,
-  Copy,
-  MessageCircle,
   ChevronDown,
   UserCheck,
   ShieldCheck,
@@ -21,6 +17,9 @@ import {
 import api from '../../../lib/api';
 import getMediaUrl from '../../../lib/imageHelper';
 import MarkdownView from '../../../components/common/MarkdownView';
+import NewsShareButton from '../../../components/common/NewsShareButton';
+import NewsLikeButton from '../../../components/common/NewsLikeButton';
+import { VideoWatermarkBadge } from '../../../lib/watermarkHelper';
 
 export default function SingleNewsPage() {
   const params = useParams();
@@ -28,7 +27,6 @@ export default function SingleNewsPage() {
   const [news, setNews] = useState(null);
   const [relatedNews, setRelatedNews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [isAuthorOpen, setIsAuthorOpen] = useState(false);
 
   useEffect(() => {
@@ -48,34 +46,6 @@ export default function SingleNewsPage() {
 
     if (slug) fetchArticle();
   }, [slug]);
-
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
-
-  const shareOnWhatsApp = () => {
-    if (typeof window !== 'undefined' && news) {
-      const text = `${news.title} - Read on Seemanchal Express: ${window.location.href}`;
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-    }
-  };
-
-  const shareOnFacebook = () => {
-    if (typeof window !== 'undefined') {
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
-    }
-  };
-
-  const shareOnTwitter = () => {
-    if (typeof window !== 'undefined' && news) {
-      const text = `${news.title} - Seemanchal Express`;
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
-    }
-  };
 
   if (loading) {
     return (
@@ -127,7 +97,7 @@ export default function SingleNewsPage() {
         </div>
 
         {/* Main Article Container */}
-        <article className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 sm:p-10 mb-8">
+        <article className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-3 sm:p-4 mb-3">
           {/* Category & Location Badges */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {Array.isArray(news.categories) && news.categories.length > 0 ? (
@@ -200,6 +170,11 @@ export default function SingleNewsPage() {
                 <Eye className="w-3.5 h-3.5 text-sky-500" />
                 {news.views || 0} views
               </span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-rose-600 font-semibold">
+                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                {news.likes || 0} likes
+              </span>
             </div>
           </div>
 
@@ -223,8 +198,8 @@ export default function SingleNewsPage() {
                     news.videoUrl.includes('watch?v=')
                       ? news.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
                       : news.videoUrl.includes('youtu.be/')
-                      ? news.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
-                      : news.videoUrl
+                        ? news.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                        : news.videoUrl
                   }
                   title={news.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -241,6 +216,8 @@ export default function SingleNewsPage() {
                   Your browser does not support HTML5 video.
                 </video>
               )}
+              {/* Official News Watermark Badge on Video */}
+              <VideoWatermarkBadge />
             </div>
           )}
 
@@ -264,39 +241,19 @@ export default function SingleNewsPage() {
             </div>
           )}
 
-          {/* Social Share Buttons */}
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Share2 className="w-4 h-4 text-red-600" />
-              Share this story:
-            </span>
+          {/* News Engagement Section: Like, Unlike & Direct Native Share */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <button
-                onClick={shareOnWhatsApp}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                WhatsApp
-              </button>
-              <button
-                onClick={shareOnFacebook}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-colors"
-              >
-                Facebook
-              </button>
-              <button
-                onClick={shareOnTwitter}
-                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white rounded text-xs font-bold transition-colors"
-              >
-                Twitter (X)
-              </button>
-              <button
-                onClick={handleCopyLink}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded text-xs font-bold flex items-center gap-1 transition-colors"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Copied' : 'Copy Link'}
-              </button>
+              <NewsLikeButton newsId={news._id} initialLikes={news.likes || 0} />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700 hidden sm:inline">Share this story:</span>
+              <NewsShareButton
+                title={news.title}
+                text={news.subtitle && news.subtitle.trim() !== news.title.trim() ? news.subtitle : ''}
+                imageUrl={news.thumbnail ? getMediaUrl(news.thumbnail) : ''}
+              />
             </div>
           </div>
 

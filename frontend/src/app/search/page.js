@@ -58,7 +58,7 @@ function SearchContent() {
     <div className="bg-slate-50 min-h-screen py-2 md:py-8">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-8">
         {/* Search Input Box */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-2 sm:p-8 mb-2 md:mb-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 p-2 sm:p-4 mb-2 md:mb-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <span className="p-1.5 rounded-lg bg-red-100 text-red-600">
               <Search className="w-5 h-5" />
