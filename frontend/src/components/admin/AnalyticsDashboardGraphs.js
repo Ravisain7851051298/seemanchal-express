@@ -143,7 +143,7 @@ export default function AnalyticsDashboardGraphs({
     ];
 
   return (
-    <div className="space-y-2 mb-6">
+    <div className="space-y-2">
       {/* 2. Top Metric KPI Sparkline Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {/* Card 1: Readership */}

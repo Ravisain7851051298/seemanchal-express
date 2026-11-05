@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const News = require('../models/News');
 const Category = require('../models/Category');
+const LegalDocument = require('../models/LegalDocument');
+const LegalDocumentAcceptance = require('../models/LegalDocumentAcceptance');
 const { protect, authorize } = require('../middleware/auth');
 
 // Helper to make slug
@@ -352,6 +354,31 @@ router.post('/:id/like', async (req, res) => {
 // @desc    Create news (Reporter creates as 'pending', Admin creates as 'published')
 router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
   try {
+    // If reporter, enforce status check: rejected, suspended, or pending cannot submit news
+    if (req.user.role === 'reporter') {
+      if (req.user.reporterStatus === 'rejected' || req.user.status === 'rejected') {
+        return res.status(403).json({
+          success: false,
+          isRejected: true,
+          message: 'Access Denied: Your reporter application has been rejected. You cannot submit news articles.',
+        });
+      }
+      if (req.user.reporterStatus === 'suspended' || req.user.status === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          isSuspended: true,
+          message: 'Access Denied: Your reporter account is suspended. You cannot submit news articles.',
+        });
+      }
+      if (req.user.status === 'pending' || req.user.reporterStatus === 'pending') {
+        return res.status(403).json({
+          success: false,
+          isPending: true,
+          message: 'Application Pending: Your reporter credentials are under editorial review. You can submit news stories once approved.',
+        });
+      }
+    }
+
     const {
       title,
       subtitle,
@@ -367,6 +394,8 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       isFeatured,
       isTrending,
       hasWatermark,
+      watermarkPhoto,
+      watermarkVideo,
       policyAccepted,
     } = req.body;
 
@@ -401,6 +430,9 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const status = isAdmin ? 'published' : 'pending';
 
+    const photoWatermark = watermarkPhoto !== undefined ? Boolean(watermarkPhoto) : Boolean(hasWatermark);
+    const videoWatermark = watermarkVideo !== undefined ? Boolean(watermarkVideo) : Boolean(hasWatermark);
+
     const news = await News.create({
       title,
       slug,
@@ -421,10 +453,44 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
       isBreaking: isAdmin ? Boolean(isBreaking) : false,
       isFeatured: isAdmin ? Boolean(isFeatured) : false,
       isTrending: isAdmin ? Boolean(isTrending) : false,
-      hasWatermark: Boolean(hasWatermark),
+      hasWatermark: Boolean(photoWatermark || videoWatermark || hasWatermark),
+      watermarkPhoto: photoWatermark,
+      watermarkVideo: videoWatermark,
       policyAccepted: policyAccepted !== undefined ? Boolean(policyAccepted) : true,
       publishedAt: status === 'published' ? new Date() : null,
     });
+
+    // Automatically record Content Submission Guidelines acceptance for reporter
+    if (req.user.role === 'reporter') {
+      try {
+        const subDoc = await LegalDocument.findOne({
+          slug: 'content-submission-guidelines',
+          status: 'published',
+        });
+        if (subDoc) {
+          const existing = await LegalDocumentAcceptance.findOne({
+            userId: req.user._id,
+            documentId: subDoc._id,
+            versionNumber: subDoc.version || 1,
+          });
+          if (!existing) {
+            await LegalDocumentAcceptance.create({
+              userId: req.user._id,
+              documentId: subDoc._id,
+              documentSlug: subDoc.slug,
+              documentTitle: subDoc.title,
+              versionNumber: subDoc.version || 1,
+              roleAtAcceptance: 'reporter',
+              ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+              userAgent: req.headers['user-agent'] || '',
+              acceptedAt: new Date(),
+            });
+          }
+        }
+      } catch (acceptErr) {
+        console.warn('Submission guidelines acceptance record error:', acceptErr.message);
+      }
+    }
 
     const populatedNews = await News.findById(news._id)
       .populate('category', 'name nameHindi slug')
@@ -445,6 +511,23 @@ router.post('/', protect, authorize('admin', 'reporter'), async (req, res) => {
 // @desc    Update news
 router.put('/:id', protect, authorize('admin', 'reporter'), async (req, res) => {
   try {
+    if (req.user.role === 'reporter') {
+      if (req.user.reporterStatus === 'rejected' || req.user.status === 'rejected') {
+        return res.status(403).json({
+          success: false,
+          isRejected: true,
+          message: 'Access Denied: Your reporter application has been rejected. You cannot edit news articles.',
+        });
+      }
+      if (req.user.reporterStatus === 'suspended' || req.user.status === 'suspended') {
+        return res.status(403).json({
+          success: false,
+          isSuspended: true,
+          message: 'Access Denied: Your reporter account is suspended. You cannot edit news articles.',
+        });
+      }
+    }
+
     let news = await News.findById(req.params.id);
     if (!news) {
       return res.status(404).json({ success: false, message: 'News article not found' });
@@ -455,10 +538,27 @@ router.put('/:id', protect, authorize('admin', 'reporter'), async (req, res) => 
       return res.status(403).json({ success: false, message: 'Not authorized to edit this article' });
     }
 
-    const fields = ['title', 'subtitle', 'content', 'thumbnail', 'videoUrl', 'images', 'tags', 'location', 'hasWatermark', 'policyAccepted'];
+    const fields = [
+      'title',
+      'subtitle',
+      'content',
+      'thumbnail',
+      'videoUrl',
+      'images',
+      'tags',
+      'location',
+      'hasWatermark',
+      'watermarkPhoto',
+      'watermarkVideo',
+      'policyAccepted',
+    ];
     fields.forEach((field) => {
       if (req.body[field] !== undefined) news[field] = req.body[field];
     });
+
+    if (req.body.watermarkPhoto !== undefined || req.body.watermarkVideo !== undefined) {
+      news.hasWatermark = Boolean(news.watermarkPhoto || news.watermarkVideo);
+    }
 
     // Handle categories update (support categories array or single category)
     if (req.body.categories !== undefined || req.body.category !== undefined) {

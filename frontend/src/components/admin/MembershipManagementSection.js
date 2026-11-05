@@ -73,7 +73,7 @@ export default function MembershipManagementSection() {
           setPositionsList(res.data.positions || []);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleOpenChangeDesignation = (member) => {
@@ -380,7 +380,7 @@ export default function MembershipManagementSection() {
             No member accounts found matching your filter criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[420px]">
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-950/80 text-[11px] text-slate-400 uppercase tracking-wider border-b border-slate-800">
                 <tr>
@@ -393,15 +393,17 @@ export default function MembershipManagementSection() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {members.map((mem) => {
+                {members.map((mem, idx) => {
                   const isSuspended =
                     mem.membershipStatus === 'suspended' || mem.status === 'suspended';
                   const isExpired =
                     mem.membershipStatus === 'expired' ||
                     (mem.membershipExpiryDate && new Date(mem.membershipExpiryDate) < new Date());
+                  // Open dropdown upwards if row is near bottom of table (to prevent clipping by table container)
+                  const isNearBottom = members.length >= 3 && idx >= Math.max(1, members.length - 3);
 
                   return (
-                    <tr key={mem._id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={mem._id} className={`hover:bg-slate-800/40 transition-colors ${activeActionMenu === mem._id ? 'relative z-30' : ''}`}>
                       {/* Name & Contact */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -463,8 +465,8 @@ export default function MembershipManagementSection() {
                       <td className="py-3 px-4 text-center">{getMembershipBadge(mem)}</td>
 
                       {/* Actions Unified Box */}
-                      <td className="py-3 px-4 text-right relative">
-                        <div className="inline-block text-left">
+                      <td className={`py-3 px-4 text-right ${activeActionMenu === mem._id ? 'relative z-30' : ''}`}>
+                        <div className="inline-block text-left relative">
                           <button
                             type="button"
                             onClick={() => setActiveActionMenu(activeActionMenu === mem._id ? null : mem._id)}
@@ -480,7 +482,10 @@ export default function MembershipManagementSection() {
                                 className="fixed inset-0 z-30"
                                 onClick={() => setActiveActionMenu(null)}
                               />
-                              <div className="absolute right-4 mt-1.5 w-56 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs">
+                              <div
+                                className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+                                  } w-56 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs animate-in fade-in zoom-in-95 duration-100`}
+                              >
                                 <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                                   Action: {mem.name}
                                 </div>

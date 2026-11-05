@@ -45,16 +45,6 @@ export default function LoginPage() {
     }
   };
 
-  const setDemoCredentials = (role) => {
-    if (role === 'admin') {
-      setEmail('admin@seemanchalexpress.in');
-      setPassword('Admin@123456');
-    } else if (role === 'member') {
-      setEmail('tariq.anwer@seemanchalexpress.in');
-      setPassword('Member@123456');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 py-16 px-4">
       <div className="max-w-md mx-auto">
@@ -143,31 +133,6 @@ export default function LoginPage() {
               {loading ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
-
-          {/* Quick Demo Fill Buttons */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 text-center">
-              Quick Demo Fill:
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setDemoCredentials('admin')}
-                className="py-1.5 px-2 rounded bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-semibold text-center transition-colors flex items-center justify-center gap-1"
-              >
-                <Shield className="w-3.5 h-3.5 text-purple-600" />
-                Admin Fill
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoCredentials('member')}
-                className="py-1.5 px-2 rounded bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-semibold text-center transition-colors flex items-center justify-center gap-1"
-              >
-                <Users className="w-3.5 h-3.5 text-blue-600" />
-                Member Fill
-              </button>
-            </div>
-          </div>
 
           {/* Registration Links */}
           <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">

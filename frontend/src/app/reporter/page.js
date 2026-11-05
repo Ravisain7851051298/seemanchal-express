@@ -53,12 +53,17 @@ import MarkdownView from '../../components/common/MarkdownView';
 import DigitalIdCard from '../../components/documents/DigitalIdCard';
 import AppointmentLetter from '../../components/documents/AppointmentLetter';
 import LegalAgreementAcceptanceModal from '../../components/legal/LegalAgreementAcceptanceModal';
+import applyWatermarkToImage, { VideoWatermarkBadge } from '../../lib/watermarkHelper';
 
 export default function ReporterDashboard() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { user, isAuthenticated, loading: authLoading, logout, refreshUser } = useAuth();
   const { mySubmissions, loading: submissionsLoading } = useSelector((state) => state.reporter);
+
+  const isReporterRejected = user?.reporterStatus === 'rejected' || user?.status === 'rejected';
+  const isReporterSuspended = user?.reporterStatus === 'suspended' || user?.status === 'suspended';
+  const isReporterPending = (user?.status === 'pending' || user?.reporterStatus === 'pending') && !isReporterRejected && !isReporterSuspended;
 
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'submit', 'my-reports', 'press-card', 'appointment-letter', 'account-security'
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -80,6 +85,9 @@ export default function ReporterDashboard() {
     thumbnail: '',
     videoUrl: '',
     tags: '',
+    watermarkPhoto: true,
+    watermarkVideo: true,
+    policyAccepted: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -101,6 +109,9 @@ export default function ReporterDashboard() {
     thumbnail: '',
     videoUrl: '',
     tags: '',
+    watermarkPhoto: true,
+    watermarkVideo: true,
+    policyAccepted: true,
   });
   const [editReportSubmitting, setEditReportSubmitting] = useState(false);
   const [editPreviewMarkdown, setEditPreviewMarkdown] = useState(false);
@@ -318,12 +329,18 @@ export default function ReporterDashboard() {
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean),
+        watermarkPhoto: Boolean(newsForm.watermarkPhoto),
+        watermarkVideo: Boolean(newsForm.watermarkVideo),
+        hasWatermark: Boolean(newsForm.watermarkPhoto || newsForm.watermarkVideo),
+        policyAccepted: Boolean(newsForm.policyAccepted),
       };
 
       const res = await api.post('/news', payload);
       if (res.data.success) {
         dispatch(addSubmission(res.data.news));
         setSubmitSuccess(true);
+        // Refresh compliance status since submission may record content-submission-guidelines acceptance
+        fetchLegalStatus();
         setNewsForm({
           title: '',
           subtitle: '',
@@ -334,6 +351,9 @@ export default function ReporterDashboard() {
           thumbnail: '',
           videoUrl: '',
           tags: '',
+          watermarkPhoto: true,
+          watermarkVideo: true,
+          policyAccepted: true,
         });
         // Switch to my reports tab after 1.5s
         setTimeout(() => {
@@ -350,21 +370,27 @@ export default function ReporterDashboard() {
 
   // Upload image file for report thumbnail (creation or editing)
   const handleNewsImageUpload = async (e, isEdit = false) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingImage(true);
-    const data = new FormData();
-    data.append('file', file);
     try {
+      let finalFile = file;
+      const shouldWatermark = isEdit ? editReportForm.watermarkPhoto : newsForm.watermarkPhoto;
+      if (shouldWatermark) {
+        finalFile = await applyWatermarkToImage(file);
+      }
+      const data = new FormData();
+      data.append('file', finalFile);
       const res = await api.post('/upload', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
+        const fileUrl = res.data.fileUrl || res.data.url;
         if (isEdit) {
-          setEditReportForm((prev) => ({ ...prev, thumbnail: res.data.fileUrl }));
+          setEditReportForm((prev) => ({ ...prev, thumbnail: fileUrl }));
         } else {
-          setNewsForm((prev) => ({ ...prev, thumbnail: res.data.fileUrl }));
+          setNewsForm((prev) => ({ ...prev, thumbnail: fileUrl }));
         }
       }
     } catch (err) {
@@ -422,11 +448,13 @@ export default function ReporterDashboard() {
   const insertMarkdownTag = (tagType, isEdit = false) => {
     const setForm = isEdit ? setEditReportForm : setNewsForm;
     let snippet = '';
+    if (tagType === 'h2') snippet = '\n\n## Main Section Heading\n';
+    if (tagType === 'h3' || tagType === 'heading') snippet = '\n\n### Dateline Section Heading\n';
     if (tagType === 'bold') snippet = '**Bold Headline** ';
     if (tagType === 'italic') snippet = '*Italic Emphasis* ';
-    if (tagType === 'heading') snippet = '\n\n### Dateline Section Heading\n';
     if (tagType === 'quote') snippet = '\n> "Official quote or eyewitness testimony..."\n';
     if (tagType === 'bullet') snippet = '\n- Key development point 1\n- Key development point 2\n';
+    if (tagType === 'link') snippet = ' [Link Title](https://example.com) ';
 
     setForm((prev) => ({
       ...prev,
@@ -456,6 +484,9 @@ export default function ReporterDashboard() {
         tags: editReportForm.tags
           ? editReportForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
           : [],
+        watermarkPhoto: Boolean(editReportForm.watermarkPhoto),
+        watermarkVideo: Boolean(editReportForm.watermarkVideo),
+        hasWatermark: Boolean(editReportForm.watermarkPhoto || editReportForm.watermarkVideo),
       };
       const res = await api.put(`/news/${editingReport._id}`, payload);
       if (res.data.success) {
@@ -661,8 +692,8 @@ export default function ReporterDashboard() {
               </span>
               <span
                 className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${user.status === 'approved'
-                    ? 'bg-emerald-900/60 text-emerald-400 border border-emerald-700/60'
-                    : 'bg-amber-900/60 text-amber-400 border border-amber-700/60'
+                  ? 'bg-emerald-900/60 text-emerald-400 border border-emerald-700/60'
+                  : 'bg-amber-900/60 text-amber-400 border border-amber-700/60'
                   }`}
               >
                 {user.status === 'approved' ? 'Accredited' : 'Pending'}
@@ -678,8 +709,8 @@ export default function ReporterDashboard() {
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'overview'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
               <TrendingUp className="w-4 h-4" />
@@ -691,13 +722,20 @@ export default function ReporterDashboard() {
                 setActiveTab('submit');
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'submit'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'submit'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>Submit News Story</span>
+              <span className="flex items-center gap-2.5">
+                <PlusCircle className="w-4 h-4" />
+                <span>Submit News Story</span>
+              </span>
+              {isReporterRejected && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-bold border border-red-800">
+                  Denied
+                </span>
+              )}
             </button>
 
             <button
@@ -706,8 +744,8 @@ export default function ReporterDashboard() {
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'my-reports'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
               <span className="flex items-center gap-2.5">
@@ -716,8 +754,8 @@ export default function ReporterDashboard() {
               </span>
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'my-reports'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-slate-800 text-slate-400'
+                  ? 'bg-slate-950 text-amber-400'
+                  : 'bg-slate-800 text-slate-400'
                   }`}
               >
                 {totalSubmissions}
@@ -729,13 +767,20 @@ export default function ReporterDashboard() {
                 setActiveTab('press-card');
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'press-card'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'press-card'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
-              <CreditCard className="w-4 h-4" />
-              <span>Digital Press ID Card</span>
+              <span className="flex items-center gap-2.5">
+                <CreditCard className="w-4 h-4" />
+                <span>Digital Press ID Card</span>
+              </span>
+              {isReporterRejected && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-bold border border-red-800">
+                  Denied
+                </span>
+              )}
             </button>
 
             <button
@@ -743,13 +788,20 @@ export default function ReporterDashboard() {
                 setActiveTab('appointment-letter');
                 setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'appointment-letter'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'appointment-letter'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Appointment Letter</span>
+              <span className="flex items-center gap-2.5">
+                <FileText className="w-4 h-4" />
+                <span>Appointment Letter</span>
+              </span>
+              {isReporterRejected && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-bold border border-red-800">
+                  Denied
+                </span>
+              )}
             </button>
 
             <button
@@ -758,8 +810,8 @@ export default function ReporterDashboard() {
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'compliance'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
               <span className="flex items-center gap-2.5">
@@ -783,8 +835,8 @@ export default function ReporterDashboard() {
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'account-security'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`}
             >
               <Lock className="w-4 h-4" />
@@ -818,11 +870,36 @@ export default function ReporterDashboard() {
         <LegalAgreementAcceptanceModal
           token={typeof window !== 'undefined' ? localStorage.getItem('token') : null}
           userRole="reporter"
-          onAllAccepted={() => {}}
+          onAllAccepted={() => { }}
         />
 
+        {/* Reporter Rejection Banner - Access & Actions Denied */}
+        {isReporterRejected && (
+          <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-red-950 via-red-900 to-rose-950 border-2 border-red-600 text-red-200 shadow-2xl">
+            <div className="flex items-center gap-3 text-lg font-black text-white">
+              <XCircle className="w-6 h-6 text-red-400 shrink-0" />
+              संवाददाता आवेदन अस्वीकृत (Application Rejected) - Access &amp; Actions Denied
+            </div>
+            <p className="text-xs leading-relaxed text-red-100/90 mt-2">
+              केंद्रीय संपादकीय मंडल द्वारा आपका संवाददाता आवेदन अस्वीकृत कर दिया गया है। अस्वीकृति का कारण:{' '}
+              <strong className="text-white font-bold">{user?.rejectionReason || 'योग्यता मापदंड / सत्यापन में विसंगति'}</strong>।
+              संपादकीय आचार संहिता के तहत नई खबरें भेजने (News Submission), डिजिटल प्रेस आईडी कार्ड (Press ID Card) और नियुक्ति पत्र (Appointment Letter) के सभी अधिकार अवरुद्ध (Denied/Blocked) हैं।
+            </p>
+          </div>
+        )}
+
+        {/* Reporter Pending Application Banner */}
+        {isReporterPending && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-950/80 border border-amber-600/80 text-amber-200 flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+            <p className="text-xs leading-relaxed">
+              आपका संवाददाता आवेदन अभी <strong>प्रशासनिक समीक्षा (Under Review)</strong> में है। अनुमोदन (Approval) के पश्चात आपकी प्रेस आईडी कार्ड एवं समाचार सबमिशन सक्रिय हो जाएगा।
+            </p>
+          </div>
+        )}
+
         {/* Reporter Suspension Banner */}
-        {(user?.reporterStatus === 'suspended' || user?.status === 'suspended') && (
+        {isReporterSuspended && (
           <div className="mb-6 p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-red-200 space-y-2 shadow-2xl">
             <div className="flex items-center gap-2 text-base font-black text-white">
               <AlertTriangle className="w-5 h-5 text-red-400" />
@@ -856,7 +933,18 @@ export default function ReporterDashboard() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setActiveTab('submit')}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-lg text-xs flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
+              disabled={isReporterRejected || isReporterPending}
+              className={`px-4 py-2 font-black rounded-lg text-xs flex items-center gap-1.5 shadow-lg transition-transform ${isReporterRejected || isReporterPending
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                : 'px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 active:scale-95'
+                }`}
+              title={
+                isReporterRejected
+                  ? 'Action Denied: Application Rejected'
+                  : isReporterPending
+                    ? 'Action Blocked: Application Under Review'
+                    : 'File New Report'
+              }
             >
               <PlusCircle className="w-4 h-4" /> File New Report
             </button>
@@ -948,6 +1036,56 @@ export default function ReporterDashboard() {
               </div>
             )}
 
+            {/* Accepted Policies Summary in Overview */}
+            {legalStatus.acceptedDocuments && legalStatus.acceptedDocuments.length > 0 && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs sm:text-sm font-bold text-white">
+                      Accepted Policies &amp; Agreements
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    {legalStatus.acceptedCount} Signed &amp; Active
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {legalStatus.acceptedDocuments.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-slate-950 border border-emerald-900/40 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-emerald-300 truncate">
+                          ✓ {item.document?.title || item.acceptance?.documentTitle}
+                        </p>
+                        <span className="text-[10px] text-slate-400 block">
+                          Accepted:{' '}
+                          {item.acceptance?.acceptedAt
+                            ? new Date(item.acceptance.acceptedAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                            : 'Verified on application'}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/legal/${item.document?.slug || item.acceptance?.documentSlug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+                        title={`View ${item.document?.slug || item.acceptance?.documentSlug}`}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 4 Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
@@ -981,22 +1119,25 @@ export default function ReporterDashboard() {
               </div>
             </div>
 
-            {/* Quick Submit Banner */}
-            <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-900 text-slate-950 p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h3 className="text-lg font-black text-white">Have a breaking ground story?</h3>
-                <p className="text-xs text-amber-100 mt-1 max-w-xl">
-                  Submit ground reports with photographs, video embeds, and local testimonials. Your
-                  story will be vetted by the central desk and published live.
-                </p>
+            {/* Quick Submit Banner (Only for approved/active reporters) */}
+            {!isReporterRejected && (
+              <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-900 text-slate-950 p-6 rounded-2xl shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-white">Have a breaking ground story?</h3>
+                  <p className="text-xs text-amber-100 mt-1 max-w-xl">
+                    Submit ground reports with photographs, video embeds, and local testimonials. Your
+                    story will be vetted by the central desk and published live.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('submit')}
+                  disabled={isReporterPending}
+                  className="px-5 py-2.5 bg-slate-950 hover:bg-slate-900 disabled:opacity-60 text-amber-400 font-bold text-xs rounded-xl shadow-lg transition-transform"
+                >
+                  Start Writing Now →
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTab('submit')}
-                className="px-5 py-2.5 bg-slate-950 hover:bg-slate-900 text-amber-400 font-bold text-xs rounded-xl shadow-lg transition-transform"
-              >
-                Start Writing Now →
-              </button>
-            </div>
+            )}
 
             {/* Reporter Bio Dossier with Markdown */}
             {user.bio && (
@@ -1063,10 +1204,10 @@ export default function ReporterDashboard() {
                       <div className="flex items-center gap-2 self-end sm:self-center">
                         <span
                           className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${story.status === 'published'
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                              : story.status === 'pending'
-                                ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                                : 'bg-red-950 text-red-400 border border-red-800'
+                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            : story.status === 'pending'
+                              ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                              : 'bg-red-950 text-red-400 border border-red-800'
                             }`}
                         >
                           {story.status === 'published'
@@ -1094,12 +1235,152 @@ export default function ReporterDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Mandatory Legal & Editorial Policies Compliance Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Legal & Editorial Policy Compliance (विधिक नीतियां एवं स्वीकृति)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      IT Act 2000 & Press Council of India standards compliance status
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {legalStatus.pendingCount === 0 ? (
+                    <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-emerald-950/80 border border-emerald-600 text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> All Accepted
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-rose-950/80 border border-rose-600 text-rose-400 flex items-center gap-1 animate-pulse">
+                      <AlertCircle className="w-3.5 h-3.5" /> {legalStatus.pendingCount} Action Required
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('compliance')}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline ml-2"
+                  >
+                    View All Policies →
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Breakdown */}
+              <div className="space-y-3">
+                {/* Pending Documents */}
+                {legalStatus.pendingDocuments && legalStatus.pendingDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-rose-400 block uppercase tracking-wider">
+                      Pending Acceptance ({legalStatus.pendingDocuments.length})
+                    </span>
+                    {legalStatus.pendingDocuments.map((doc) => (
+                      <div
+                        key={doc._id}
+                        className="p-3 rounded-xl bg-slate-950/80 border border-rose-900/50 flex flex-wrap items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span>{doc.titleHindi || doc.title}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {doc.title} • Version {doc.version}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`/legal/${doc.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-slate-300 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 flex items-center gap-1"
+                          >
+                            Read Policy <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReviewPolicy(doc)}
+                            className="text-[11px] font-bold text-slate-950 px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 shadow-sm"
+                          >
+                            Review & Accept
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Accepted Documents */}
+                {legalStatus.acceptedDocuments && legalStatus.acceptedDocuments.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[11px] font-bold text-emerald-400 block uppercase tracking-wider">
+                      Accepted Policies ({legalStatus.acceptedDocuments.length})
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {legalStatus.acceptedDocuments.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-lg bg-slate-950/60 border border-emerald-900/30 flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <div className="truncate">
+                              <span className="text-xs font-semibold text-slate-200 block truncate">
+                                {item.documentTitleHindi || item.documentTitle}
+                              </span>
+                              <span className="text-[10px] text-slate-500 block">
+                                Accepted {new Date(item.acceptedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <a
+                            href={`/legal/${item.documentSlug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-amber-400 hover:text-amber-300 underline shrink-0 flex items-center gap-0.5"
+                          >
+                            View <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* TAB 2: SUBMIT NEWS / FIELD REPORT */}
         {activeTab === 'submit' && (
-          (user?.reporterStatus === 'suspended' || user?.status === 'suspended') ? (
+          isReporterRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <XCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">News Submissions Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Your reporter accreditation application was rejected by the editorial board ({user?.rejectionReason || 'Application not approved'}). You do not have permission to file news reports.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Dashboard Overview
+                </button>
+              </div>
+            </div>
+          ) : (user?.reporterStatus === 'suspended' || user?.status === 'suspended') ? (
             <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
               <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
                 <AlertTriangle className="w-8 h-8" />
@@ -1119,359 +1400,522 @@ export default function ReporterDashboard() {
               </div>
             </div>
           ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl max-w-4xl mx-auto">
-            <div className="border-b border-slate-800 pb-4 mb-6">
-              <h3 className="text-lg font-black text-white">File News Report for Editorial Review</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Field reports are vetted by the central editorial desk and published on the homepage and respective categories.
-              </p>
-            </div>
-
-            {submitSuccess && (
-              <div className="bg-emerald-950/80 border border-emerald-700 text-emerald-300 p-4 rounded-xl text-xs font-bold mb-6 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Report submitted successfully! Redirecting to your submissions...
-              </div>
-            )}
-
-            {formError && (
-              <div className="bg-red-950/80 border border-red-700 text-red-300 p-4 rounded-xl text-xs font-bold mb-6 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitNews} className="space-y-5 text-xs">
-              {/* Title */}
-              <div>
-                <label className="block font-bold text-slate-200 mb-1.5">
-                  Report Headline / Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newsForm.title}
-                  onChange={(e) => setNewsForm({ ...newsForm, title: e.target.value })}
-                  placeholder="e.g. Major bridge construction milestone completed across Kishanganj highway..."
-                  className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-semibold"
-                />
-              </div>
-
-              {/* Subtitle */}
-              <div>
-                <label className="block font-bold text-slate-200 mb-1.5">
-                  Subtitle / Summary Lead
-                </label>
-                <input
-                  type="text"
-                  value={newsForm.subtitle}
-                  onChange={(e) => setNewsForm({ ...newsForm, subtitle: e.target.value })}
-                  placeholder="A concise 1-2 sentence lead summarizing the core development..."
-                  className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* Categories & Location */}
-              <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 shadow-xl max-w-6xl xl:max-w-7xl mx-auto">
+              <div className="border-b border-slate-800 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-bold text-slate-200">
-                      News Categories * <span className="text-xs font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
-                    </label>
-                    <span className="text-xs text-slate-400">
-                      {(newsForm.categories || []).length} selected
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/80 border border-slate-700 rounded-xl max-h-36 overflow-y-auto">
-                    {categories.map((c) => {
-                      const isSelected = (newsForm.categories || []).includes(c._id) || (newsForm.categories?.length === 0 && newsForm.category === c._id);
-                      return (
-                        <button
-                          key={c._id}
-                          type="button"
-                          onClick={() => {
-                            const current = (newsForm.categories && newsForm.categories.length > 0)
-                              ? newsForm.categories
-                              : (newsForm.category ? [newsForm.category] : []);
-                            let updated;
-                            if (current.includes(c._id)) {
-                              updated = current.filter((id) => id !== c._id);
-                            } else {
-                              updated = [...current, c._id];
-                            }
-                            setNewsForm({
-                              ...newsForm,
-                              categories: updated,
-                              category: updated[0] || '',
-                            });
-                          }}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isSelected
-                              ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
-                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                          }`}
-                        >
-                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
-                          <span>{c.name}</span>
-                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-white">File News Report for Editorial Review</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Field reports are vetted by the central editorial desk and published on the homepage and respective categories.
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                  Full-Featured Field Editor
+                </span>
+              </div>
+
+              {submitSuccess && (
+                <div className="bg-emerald-950/80 border border-emerald-700 text-emerald-300 p-4 rounded-xl text-xs font-bold mb-6 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Report submitted successfully! Redirecting to your submissions...
+                </div>
+              )}
+
+              {formError && (
+                <div className="bg-red-950/80 border border-red-700 text-red-300 p-4 rounded-xl text-xs font-bold mb-6 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitNews} className="space-y-5 text-xs">
+                {/* Title & Subtitle */}
+                <div>
+                  <label id='title' className="block font-bold text-slate-200 mb-1.5">
+                    Report Headline / Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    name='title'
+                    value={newsForm.title}
+                    onChange={(e) => setNewsForm({ ...newsForm, title: e.target.value })}
+                    placeholder="e.g. Major bridge construction milestone completed across Kishanganj highway..."
+                    className="w-full px-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-semibold text-sm"
+                  />
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-200 mb-1.5">
-                    Beat Dateline / Reporting Location *
+                    Subtitle / Summary Lead
                   </label>
                   <input
                     type="text"
-                    required
-                    value={newsForm.location}
-                    onChange={(e) => setNewsForm({ ...newsForm, location: e.target.value })}
-                    placeholder="e.g. Bahadurganj, Kishanganj, Bihar"
-                    className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    value={newsForm.subtitle}
+                    onChange={(e) => setNewsForm({ ...newsForm, subtitle: e.target.value })}
+                    placeholder="A concise 1-2 sentence lead summarizing the core development..."
+                    className="w-full px-4 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                   />
                 </div>
-              </div>
 
-              {/* Image & Video Links with Direct Upload */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-bold text-slate-200 mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                      Featured Photograph
-                    </span>
-                    <label className="cursor-pointer text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                      <Upload className="w-3 h-3" />
-                      {uploadingImage ? 'Uploading...' : 'Upload File'}
+                {/* 2-Column Responsive Grid: Metadata & Media */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Left: Categories & Dateline & Tags */}
+                  <div className="space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block font-bold text-slate-200">
+                          News Categories * <span className="text-xs font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                        </label>
+                        <span className="text-xs text-slate-400 font-bold">
+                          {(newsForm.categories || []).length} selected
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/80 border border-slate-700 rounded-xl max-h-36 overflow-y-auto">
+                        {categories.map((c) => {
+                          const isSelected = (newsForm.categories || []).includes(c._id) || (newsForm.categories?.length === 0 && newsForm.category === c._id);
+                          return (
+                            <button
+                              key={c._id}
+                              type="button"
+                              onClick={() => {
+                                const current = (newsForm.categories && newsForm.categories.length > 0)
+                                  ? newsForm.categories
+                                  : (newsForm.category ? [newsForm.category] : []);
+                                let updated;
+                                if (current.includes(c._id)) {
+                                  updated = current.filter((id) => id !== c._id);
+                                } else {
+                                  updated = [...current, c._id];
+                                }
+                                setNewsForm({
+                                  ...newsForm,
+                                  categories: updated,
+                                  category: updated[0] || '',
+                                });
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                                ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
+                                : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                                }`}
+                            >
+                              <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                              <span>{c.name}</span>
+                              {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-200 mb-1.5">
+                        Beat Dateline / Reporting Location *
+                      </label>
                       <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleNewsImageUpload(e, false)}
-                      />
-                    </label>
-                  </label>
-                  <input
-                    type="text"
-                    value={newsForm.thumbnail}
-                    onChange={(e) => setNewsForm({ ...newsForm, thumbnail: e.target.value })}
-                    placeholder="Upload file above or paste image URL..."
-                    className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
-                  />
-                  {newsForm.thumbnail && (
-                    <div className="mt-2 relative w-24 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
-                      <img
-                        src={getMediaUrl(newsForm.thumbnail)}
-                        alt="Thumbnail preview"
-                        className="w-full h-full object-cover"
+                        type="text"
+                        required
+                        value={newsForm.location}
+                        onChange={(e) => setNewsForm({ ...newsForm, location: e.target.value })}
+                        placeholder="e.g. Bahadurganj, Kishanganj, Bihar"
+                        className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                       />
                     </div>
-                  )}
+                  </div>
+
+                  {/* Right: Media Section */}
+                  <div className="space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                    {/* Featured Photograph */}
+                    <div>
+                      <label className="font-bold text-slate-200 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                          Featured Photograph
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {newsForm.thumbnail && (
+                            <button
+                              type="button"
+                              onClick={() => setNewsForm((prev) => ({ ...prev, thumbnail: '' }))}
+                              className="text-[11px] font-bold text-red-400 hover:text-red-300 flex items-center gap-0.5 cursor-pointer"
+                              title="Remove photograph"
+                            >
+                              <X className="w-3 h-3" />
+                              <span>Clear</span>
+                            </button>
+                          )}
+                          <label className="cursor-pointer text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                            <Upload className="w-3 h-3" />
+                            {uploadingImage ? 'Uploading...' : 'Upload File'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleNewsImageUpload(e, false)}
+                            />
+                          </label>
+                        </div>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsForm.thumbnail}
+                        onChange={(e) => setNewsForm({ ...newsForm, thumbnail: e.target.value })}
+                        placeholder="Upload file above or paste image URL..."
+                        className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                      />
+
+                      {/* Large Photo Preview with Watermark & X Close Button */}
+                      {newsForm.thumbnail && (
+                        <div className="mt-2.5 relative w-full aspect-video max-h-72 rounded-xl overflow-hidden border-2 border-slate-700 bg-black shadow-xl group">
+                          <img
+                            src={getMediaUrl(newsForm.thumbnail)}
+                            alt="Thumbnail preview"
+                            className="w-full h-full object-contain bg-slate-950"
+                          />
+                          {/* Top-Right 'X' Close Button */}
+                          <button
+                            type="button"
+                            onClick={() => setNewsForm((prev) => ({ ...prev, thumbnail: '' }))}
+                            className="absolute top-2.5 right-2.5 z-20 w-8 h-8 rounded-full bg-slate-900/90 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/80 flex items-center justify-center transition-all shadow-lg backdrop-blur-sm cursor-pointer"
+                            title="Remove image"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          {/* Top-Left Preview Badge */}
+                          <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded bg-black/75 text-[10px] font-semibold text-slate-300 border border-white/10 backdrop-blur-sm flex items-center gap-1 pointer-events-none">
+                            <ImageIcon className="w-3 h-3 text-amber-400" />
+                            <span>Photo Preview</span>
+                          </div>
+                          {/* Watermark Overlay Badge if enabled */}
+                          {newsForm.watermarkPhoto && (
+                            <div className="absolute bottom-2.5 right-2.5 z-10 pointer-events-none select-none flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950/85 backdrop-blur-md border border-amber-500/60 shadow-lg text-white">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="text-[10px] font-black tracking-wide text-amber-300">
+                                सीमांचल एक्सप्रेस वॉटरमार्क
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Video Clip */}
+                    <div>
+                      <label className="font-bold text-slate-200 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Video className="w-3.5 h-3.5 text-red-500" />
+                          Video Clip (Upload File or URL)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {newsForm.videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setNewsForm((prev) => ({ ...prev, videoUrl: '' }))}
+                              className="text-[11px] font-bold text-red-400 hover:text-red-300 flex items-center gap-0.5 cursor-pointer"
+                              title="Remove video"
+                            >
+                              <X className="w-3 h-3" />
+                              <span>Clear</span>
+                            </button>
+                          )}
+                          <label className={`cursor-pointer px-2.5 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 transition-all ${uploadingVideo
+                            ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                            : 'bg-red-950/80 hover:bg-red-900 text-red-300 border-red-800/80'
+                            }`}>
+                            <Upload className="w-3 h-3" />
+                            {uploadingVideo ? 'Uploading...' : 'Upload Video'}
+                            <input
+                              type="file"
+                              accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                              disabled={uploadingVideo}
+                              className="hidden"
+                              onChange={(e) => handleNewsVideoUpload(e, false)}
+                            />
+                          </label>
+                        </div>
+                      </label>
+                      <input
+                        type="text"
+                        value={newsForm.videoUrl}
+                        onChange={(e) => setNewsForm({ ...newsForm, videoUrl: e.target.value })}
+                        placeholder="Upload video above or paste YouTube / MP4 URL..."
+                        className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                      />
+
+                      {/* Large Video Preview with Watermark & X Close Button */}
+                      {newsForm.videoUrl && (
+                        <div className="mt-2.5 space-y-2">
+                          <div className="relative w-full aspect-video max-h-72 rounded-xl overflow-hidden border-2 border-slate-700 bg-black shadow-xl">
+                            {newsForm.videoUrl.includes('youtube.com') || newsForm.videoUrl.includes('youtu.be') ? (
+                              <iframe
+                                src={
+                                  newsForm.videoUrl.includes('watch?v=')
+                                    ? newsForm.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
+                                    : newsForm.videoUrl.includes('youtu.be/')
+                                      ? newsForm.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                                      : newsForm.videoUrl
+                                }
+                                title="Video Preview"
+                                className="w-full h-full border-0 pointer-events-none"
+                              />
+                            ) : (
+                              <video
+                                src={getMediaUrl(newsForm.videoUrl)}
+                                controls
+                                className="w-full h-full object-contain"
+                              />
+                            )}
+
+                            {/* Top-Right 'X' Close Button */}
+                            <button
+                              type="button"
+                              onClick={() => setNewsForm((prev) => ({ ...prev, videoUrl: '' }))}
+                              className="absolute top-2.5 right-2.5 z-30 w-8 h-8 rounded-full bg-slate-900/90 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/80 flex items-center justify-center transition-all shadow-lg backdrop-blur-sm cursor-pointer"
+                              title="Remove video"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+
+                            {/* Top-Left Preview Badge */}
+                            <div className="absolute top-2.5 left-2.5 z-20 px-2 py-0.5 rounded bg-black/75 text-[10px] font-semibold text-slate-300 border border-white/10 backdrop-blur-sm flex items-center gap-1 pointer-events-none">
+                              <Video className="w-3 h-3 text-red-400" />
+                              <span>Video Preview</span>
+                            </div>
+
+                            {/* Video Watermark Overlay Badge if enabled */}
+                            {newsForm.watermarkVideo && <VideoWatermarkBadge />}
+                          </div>
+
+                          <div className="p-2 px-3 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
+                            <span className="truncate max-w-[280px]">✓ Video Attached: {newsForm.videoUrl}</span>
+                            <button
+                              type="button"
+                              onClick={() => setNewsForm((prev) => ({ ...prev, videoUrl: '' }))}
+                              className="text-red-400 hover:text-red-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" /> Remove
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="font-bold text-slate-200 mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5 text-red-500" />
-                      Video Clip (Upload File or URL)
-                    </span>
-                    <label className={`cursor-pointer px-2.5 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 transition-all ${
-                      uploadingVideo
-                        ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
-                        : 'bg-red-950/80 hover:bg-red-900 text-red-300 border-red-800/80'
-                    }`}>
-                      <Upload className="w-3 h-3" />
-                      {uploadingVideo ? 'Uploading...' : 'Upload Video'}
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
-                        disabled={uploadingVideo}
-                        className="hidden"
-                        onChange={(e) => handleNewsVideoUpload(e, false)}
-                      />
-                    </label>
+                {/* Separate Watermark Options for Photo & Video */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-800/60 border border-slate-700/80 rounded-xl">
+                  <label className="flex items-start gap-2.5 cursor-pointer text-slate-200 hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={newsForm.watermarkPhoto}
+                      onChange={(e) => setNewsForm({ ...newsForm, watermarkPhoto: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-600"
+                    />
+                    <div>
+                      <span className="font-bold text-xs block text-slate-200">फोटो पर वॉटरमार्क जोड़ें (Photo Watermark)</span>
+                      <span className="text-[10px] text-slate-400">Apply official channel watermark on uploaded photo</span>
+                    </div>
                   </label>
-                  <input
-                    type="text"
-                    value={newsForm.videoUrl}
-                    onChange={(e) => setNewsForm({ ...newsForm, videoUrl: e.target.value })}
-                    placeholder="Upload video above or paste YouTube / MP4 URL..."
-                    className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
-                  />
-                  {newsForm.videoUrl && (
-                    <div className="mt-1.5 p-1.5 px-2.5 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
-                      <span className="truncate max-w-[260px]">✓ Video: {newsForm.videoUrl}</span>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer text-slate-200 hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={newsForm.watermarkVideo}
+                      onChange={(e) => setNewsForm({ ...newsForm, watermarkVideo: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 rounded text-red-500 focus:ring-red-500 bg-slate-900 border-slate-600"
+                    />
+                    <div>
+                      <span className="font-bold text-xs block text-slate-200">वीडियो पर वॉटरमार्क जोड़ें (Video Watermark)</span>
+                      <span className="text-[10px] text-slate-400">Display official broadcast watermark badge on video player</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Body Content with Markdown Toolbar & Live Preview Toggle */}
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-1 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <label className="font-bold text-slate-200 text-xs">
+                        Detailed Report Content *
+                      </label>
+                      <span className="text-[10px] text-slate-500 hidden sm:inline">
+                        ({(newsForm.content || '').length} characters)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Quick Markdown tags */}
                       <button
                         type="button"
-                        onClick={() => setNewsForm({ ...newsForm, videoUrl: '' })}
-                        className="text-red-400 hover:text-red-300 text-[10px]"
+                        onClick={() => insertMarkdownTag('h2', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert H2 Main Heading"
                       >
-                        Remove
+                        H2
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('heading', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert H3 Subheading"
+                      >
+                        H3
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('bold', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert Bold Text"
+                      >
+                        **B**
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('italic', false)}
+                        className="px-2 py-0.5 text-[10px] italic bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert Italic Text"
+                      >
+                        *I*
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('quote', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert Quote"
+                      >
+                        &gt; Quote
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('bullet', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert List"
+                      >
+                        • List
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertMarkdownTag('link', false)}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                        title="Insert Link"
+                      >
+                        Link
+                      </button>
+
+                      <div className="border-l border-slate-700 h-4 mx-1 hidden sm:block"></div>
+
+                      {/* Preview Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewMarkdown(!previewMarkdown)}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors ${previewMarkdown
+                          ? 'bg-amber-500 text-slate-950 shadow-sm'
+                          : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
+                          }`}
+                      >
+                        {previewMarkdown ? (
+                          <>
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Editing Mode</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Live Preview</span>
+                          </>
+                        )}
                       </button>
                     </div>
+                  </div>
+
+                  {previewMarkdown ? (
+                    <div className="w-full min-h-[320px] max-h-[500px] overflow-y-auto p-5 bg-slate-950 border border-amber-500/40 rounded-xl text-white leading-relaxed">
+                      {newsForm.content ? (
+                        <MarkdownView content={newsForm.content} isDark={true} />
+                      ) : (
+                        <span className="text-slate-500 italic text-xs">
+                          Nothing to preview. Type report content in edit mode.
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <textarea
+                      rows={14}
+                      required
+                      value={newsForm.content}
+                      onChange={(e) => setNewsForm({ ...newsForm, content: e.target.value })}
+                      placeholder="Write the full report here in Markdown format:&#10;&#10;## Main Subheading&#10;Paragraph content with on-the-ground facts, statements by officials, public reactions...&#10;&#10;> Eyewitness statement or quote...&#10;&#10;- Key bullet points..."
+                      className="w-full px-4 py-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 leading-relaxed font-sans text-xs"
+                    />
                   )}
                 </div>
-              </div>
 
-              {/* Body Content with Markdown Toolbar & Live Preview Toggle */}
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <label className="font-bold text-slate-200 text-xs">
-                    Detailed Report Content *
+                {/* Tags */}
+                <div>
+                  <label className="block font-bold text-slate-200 mb-1.5">
+                    Tags / Keywords (comma separated)
                   </label>
-                  <div className="flex items-center gap-1.5">
-                    {/* Quick Markdown tags */}
-                    <button
-                      type="button"
-                      onClick={() => insertMarkdownTag('heading', false)}
-                      className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      title="Insert Heading"
-                    >
-                      H3
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertMarkdownTag('bold', false)}
-                      className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      title="Insert Bold Text"
-                    >
-                      **B**
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertMarkdownTag('italic', false)}
-                      className="px-2 py-0.5 text-[10px] font-italic bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      title="Insert Italic Text"
-                    >
-                      *I*
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertMarkdownTag('quote', false)}
-                      className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      title="Insert Quote"
-                    >
-                      &gt; Quote
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertMarkdownTag('bullet', false)}
-                      className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      title="Insert List"
-                    >
-                      - List
-                    </button>
-
-                    <div className="border-l border-slate-700 h-4 mx-1"></div>
-
-                    {/* Preview Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setPreviewMarkdown(!previewMarkdown)}
-                      className={`px-2.5 py-0.5 text-[11px] font-bold rounded flex items-center gap-1 transition-colors ${
-                        previewMarkdown
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                      }`}
-                    >
-                      <Eye className="w-3 h-3" />
-                      {previewMarkdown ? 'Editing Mode' : 'Live Preview'}
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    value={newsForm.tags}
+                    onChange={(e) => setNewsForm({ ...newsForm, tags: e.target.value })}
+                    placeholder="Kishanganj, Infrastructure, Flood, Roadways, Bihar"
+                    className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                  />
                 </div>
 
-                {previewMarkdown ? (
-                  <div className="w-full min-h-[200px] p-4 bg-slate-950 border border-amber-500/40 rounded-xl text-white">
-                    {newsForm.content ? (
-                      <MarkdownView content={newsForm.content} isDark={true} />
-                    ) : (
-                      <span className="text-slate-500 italic text-xs">
-                        Nothing to preview. Type report content in edit mode.
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <textarea
-                    rows={8}
+                {/* Compliance & Privacy Policy Acceptance */}
+                <div className="p-3 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-slate-300 flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
                     required
-                    value={newsForm.content}
-                    onChange={(e) => setNewsForm({ ...newsForm, content: e.target.value })}
-                    placeholder="Write the full report here (Markdown supported: # Headings, **bold**, - bullet points, > quotes). Include on-the-ground facts, statements by officials, public reactions, and background context..."
-                    className="w-full px-3.5 py-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 leading-relaxed font-sans"
+                    checked={newsForm.policyAccepted}
+                    onChange={(e) => setNewsForm({ ...newsForm, policyAccepted: e.target.checked })}
+                    id="reporterNewsPolicyCheck"
+                    className="mt-0.5 w-4 h-4 text-amber-500 rounded bg-slate-800 border-slate-600 cursor-pointer"
                   />
-                )}
-              </div>
+                  <label htmlFor="reporterNewsPolicyCheck" className="cursor-pointer leading-relaxed flex-1">
+                    I certify that this report, photographs, and video materials comply with the{' '}
+                    <a
+                      href="/legal/content-submission-guidelines"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-amber-400 hover:text-amber-300 underline font-bold inline-flex items-center gap-1"
+                    >
+                      Content Submission Guidelines (सामग्री प्रस्तुति दिशानिर्देश) <ExternalLink className="w-3 h-3" />
+                    </a>{' '}
+                    and the{' '}
+                    <a
+                      href="/legal/editorial-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-amber-400 hover:text-amber-300 underline font-bold inline-flex items-center gap-1"
+                    >
+                      Journalist Guidelines (संपादकीय नीति) <ExternalLink className="w-3 h-3" />
+                    </a>.
+                  </label>
+                </div>
 
-              {/* Tags */}
-              <div>
-                <label className="block font-bold text-slate-200 mb-1.5">
-                  Tags / Keywords (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={newsForm.tags}
-                  onChange={(e) => setNewsForm({ ...newsForm, tags: e.target.value })}
-                  placeholder="Kishanganj, Infrastructure, Flood, Roadways, Bihar"
-                  className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* Compliance & Privacy Policy Acceptance */}
-              <div className="p-3 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-slate-300 flex items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  required
-                  defaultChecked
-                  id="reporterNewsPolicyCheck"
-                  className="mt-0.5 text-amber-500 rounded"
-                />
-                <label htmlFor="reporterNewsPolicyCheck" className="cursor-pointer leading-relaxed flex-1">
-                  I certify that this report, photographs, and video materials comply with the{' '}
-                  <a
-                    href="/legal/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-amber-400 hover:text-amber-300 underline font-bold inline-flex items-center gap-1"
+                {/* Submit Buttons */}
+                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('overview')}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl"
                   >
-                    Privacy Policy (गोपनीयता नीति) <ExternalLink className="w-3 h-3" />
-                  </a>{' '}
-                  and the{' '}
-                  <a
-                    href="/legal/editorial-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-amber-400 hover:text-amber-300 underline font-bold inline-flex items-center gap-1"
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl shadow-lg flex items-center gap-2"
                   >
-                    Journalist Guidelines (संपादकीय नीति) <ExternalLink className="w-3 h-3" />
-                  </a>.
-                </label>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('overview')}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl shadow-lg flex items-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  {submitting ? 'Submitting to Desk...' : 'Dispatch Report for Review'}
-                </button>
-              </div>
-            </form>
-          </div>
+                    <Send className="w-4 h-4" />
+                    {submitting ? 'Submitting to Desk...' : 'Dispatch Report for Review'}
+                  </button>
+                </div>
+              </form>
+            </div>
           )
         )}
 
@@ -1487,8 +1931,8 @@ export default function ReporterDashboard() {
                       key={st}
                       onClick={() => setReportsFilter(st)}
                       className={`px-3 py-1 rounded text-xs font-bold capitalize transition-colors ${reportsFilter === st
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'text-slate-400 hover:text-white'
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'text-slate-400 hover:text-white'
                         }`}
                     >
                       {st === 'all'
@@ -1616,6 +2060,8 @@ export default function ReporterDashboard() {
                               thumbnail: story.thumbnail || '',
                               videoUrl: story.videoUrl || '',
                               tags: Array.isArray(story.tags) ? story.tags.join(', ') : '',
+                              watermarkPhoto: story.watermarkPhoto !== undefined ? Boolean(story.watermarkPhoto) : (story.hasWatermark !== undefined ? Boolean(story.hasWatermark) : true),
+                              watermarkVideo: story.watermarkVideo !== undefined ? Boolean(story.watermarkVideo) : (story.hasWatermark !== undefined ? Boolean(story.hasWatermark) : true),
                             });
                           }}
                           className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-300 rounded text-xs font-bold flex items-center gap-1 border border-amber-800 shadow-sm"
@@ -1638,10 +2084,10 @@ export default function ReporterDashboard() {
 
                       <span
                         className={`px-3 py-1 rounded text-xs font-bold uppercase ${story.status === 'published'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                            : story.status === 'pending'
-                              ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                              : 'bg-red-950 text-red-400 border border-red-800'
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                          : story.status === 'pending'
+                            ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                            : 'bg-red-950 text-red-400 border border-red-800'
                           }`}
                       >
                         {story.status === 'published'
@@ -1674,48 +2120,110 @@ export default function ReporterDashboard() {
 
         {/* TAB 4: DIGITAL PRESS ID CARD */}
         {activeTab === 'press-card' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
-            <div className="text-center mb-6 max-w-md">
-              <h3 className="text-lg font-black text-white">Press Accreditation Identity Card</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Official field press credential issued by Seemanchal Express Editorial Board with secure QR verification.
+          isReporterRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <XCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Press Accreditation Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Your reporter accreditation application was not approved ({user?.rejectionReason || 'Application rejected by editorial board'}). Official digital press cards are issued exclusively to accredited active journalists.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Dashboard Overview
+                </button>
+              </div>
+            </div>
+          ) : isReporterPending ? (
+            <div className="bg-slate-900 border border-amber-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-amber-950/80 border border-amber-700 text-amber-400 mx-auto flex items-center justify-center">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Press Accreditation Pending Approval</h3>
+              <p className="text-xs text-amber-300 max-w-md mx-auto leading-relaxed">
+                Your reporter accreditation application is currently under editorial desk verification. Your digital press card with dynamic verification QR will become accessible once approved.
               </p>
             </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
+              <div className="text-center mb-6 max-w-md">
+                <h3 className="text-lg font-black text-white">Press Accreditation Identity Card</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Official field press credential issued by Seemanchal Express Editorial Board with secure QR verification.
+                </p>
+              </div>
 
-            {fetchingDocs ? (
-              <div className="py-12 text-center">
-                <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-xs text-slate-400">Generating press credential...</p>
-              </div>
-            ) : (
-              <div className="w-full flex justify-center">
-                <DigitalIdCard cardData={idCardData || user} />
-              </div>
-            )}
-          </div>
+              {fetchingDocs ? (
+                <div className="py-12 text-center">
+                  <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-xs text-slate-400">Generating press credential...</p>
+                </div>
+              ) : (
+                <div className="w-full flex justify-center">
+                  <DigitalIdCard cardData={idCardData || user} />
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* TAB 5: APPOINTMENT LETTER */}
         {activeTab === 'appointment-letter' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
-            <div className="text-center mb-6 max-w-md">
-              <h3 className="text-lg font-black text-white">Official Press Appointment Letter</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Authorized letter of engagement confirming correspondent authorization across assigned beats.
+          isReporterRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <XCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Appointment Letter Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Authorized letters of engagement are not granted to rejected applicants. Contact the editorial desk if you believe this was an error.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Dashboard Overview
+                </button>
+              </div>
+            </div>
+          ) : isReporterPending ? (
+            <div className="bg-slate-900 border border-amber-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-amber-950/80 border border-amber-700 text-amber-400 mx-auto flex items-center justify-center">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Appointment Letter Pending Approval</h3>
+              <p className="text-xs text-amber-300 max-w-md mx-auto leading-relaxed">
+                Your official letter of correspondent engagement will be issued once the central editorial board approves your credentials.
               </p>
             </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
+              <div className="text-center mb-6 max-w-md">
+                <h3 className="text-lg font-black text-white">Official Press Appointment Letter</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Authorized letter of engagement confirming correspondent authorization across assigned beats.
+                </p>
+              </div>
 
-            {fetchingDocs ? (
-              <div className="py-12 text-center">
-                <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-xs text-slate-400">Loading appointment letter...</p>
-              </div>
-            ) : (
-              <div className="w-full flex justify-center">
-                <AppointmentLetter appointmentData={appointmentData || user} />
-              </div>
-            )}
-          </div>
+              {fetchingDocs ? (
+                <div className="py-12 text-center">
+                  <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-xs text-slate-400">Loading appointment letter...</p>
+                </div>
+              ) : (
+                <div className="w-full flex justify-center">
+                  <AppointmentLetter appointmentData={appointmentData || user} />
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* TAB: LEGAL & EDITORIAL POLICIES COMPLIANCE */}
@@ -1726,11 +2234,10 @@ export default function ReporterDashboard() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
-                      legalStatus.pendingCount === 0
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-rose-600 text-white'
-                    }`}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${legalStatus.pendingCount === 0
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-rose-600 text-white'
+                      }`}
                   >
                     <Scale className="w-6 h-6" />
                   </div>
@@ -1767,9 +2274,8 @@ export default function ReporterDashboard() {
                     Lapsed / Pending Acceptance
                   </span>
                   <strong
-                    className={`text-2xl font-black ${
-                      legalStatus.pendingCount > 0 ? 'text-rose-500' : 'text-slate-400'
-                    }`}
+                    className={`text-2xl font-black ${legalStatus.pendingCount > 0 ? 'text-rose-500' : 'text-slate-400'
+                      }`}
                   >
                     {legalStatus.pendingCount}
                   </strong>
@@ -1914,12 +2420,12 @@ export default function ReporterDashboard() {
                           Accepted on:{' '}
                           {item.acceptance?.acceptedAt
                             ? new Date(item.acceptance.acceptedAt).toLocaleDateString('hi-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
                             : 'Verified'}
                         </p>
                         <span className="text-[10px] text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800 inline-block">
@@ -2074,8 +2580,8 @@ export default function ReporterDashboard() {
               {passwordMsg.text && (
                 <div
                   className={`p-3 rounded-lg text-xs font-bold mb-4 ${passwordMsg.type === 'success'
-                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                      : 'bg-red-950 text-red-400 border border-red-800'
+                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                    : 'bg-red-950 text-red-400 border border-red-800'
                     }`}
                 >
                   {passwordMsg.text}
@@ -2181,17 +2687,18 @@ export default function ReporterDashboard() {
           </div>
         )}
 
-        {/* MODAL: Edit Report & Resubmit */}
+        {/* MODAL: Edit Report & Resubmit - Full-Screen Spacious */}
         {editingReport && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl p-6 sm:p-8 text-white max-h-[90vh] overflow-y-auto shadow-2xl relative">
-              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-6xl xl:max-w-7xl max-h-[94vh] sm:max-h-[96vh] h-full flex flex-col text-white shadow-2xl overflow-hidden">
+              {/* Sticky Modal Header */}
+              <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur shrink-0 z-10">
                 <div>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 uppercase">
-                    Edit & Resubmit
+                    Edit &amp; Resubmit Field Report
                   </span>
-                  <h3 className="text-lg font-black text-white mt-1">
-                    Edit Field Report: {editingReport.title}
+                  <h3 className="text-base sm:text-lg font-black text-white mt-1">
+                    Edit Field Report: {editReportForm.title || editingReport.title}
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Update report details, body markdown, or photo. Resubmission will be placed into the editorial queue.
@@ -2199,260 +2706,443 @@ export default function ReporterDashboard() {
                 </div>
                 <button
                   onClick={() => setEditingReport(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800"
+                  className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Close Modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {editingReport.status === 'rejected' && editingReport.rejectionReason && (
-                <div className="mb-5 p-3 rounded-xl bg-red-950/80 border border-red-800 text-xs text-red-200">
-                  <strong className="text-red-300 block mb-0.5">Editor Feedback to Address:</strong>
-                  {editingReport.rejectionReason}
-                </div>
-              )}
-
-              <form onSubmit={handleEditReportSubmit} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Headline / Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editReportForm.title}
-                    onChange={(e) => setEditReportForm({ ...editReportForm, title: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Subtitle / Summary Lead</label>
-                  <input
-                    type="text"
-                    value={editReportForm.subtitle}
-                    onChange={(e) => setEditReportForm({ ...editReportForm, subtitle: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-bold text-slate-300">
-                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      {(editReportForm.categories || []).length} selected
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
-                    {categories.map((c) => {
-                      const isSelected = (editReportForm.categories || []).includes(c._id) || (editReportForm.categories?.length === 0 && editReportForm.category === c._id);
-                      return (
-                        <button
-                          key={c._id}
-                          type="button"
-                          onClick={() => {
-                            const current = (editReportForm.categories && editReportForm.categories.length > 0)
-                              ? editReportForm.categories
-                              : (editReportForm.category ? [editReportForm.category] : []);
-                            let updated;
-                            if (current.includes(c._id)) {
-                              updated = current.filter((id) => id !== c._id);
-                            } else {
-                              updated = [...current, c._id];
-                            }
-                            setEditReportForm({
-                              ...editReportForm,
-                              categories: updated,
-                              category: updated[0] || '',
-                            });
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isSelected
-                              ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
-                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                          }`}
-                        >
-                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
-                          <span>{c.name}</span>
-                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Dateline / Location *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editReportForm.location}
-                    onChange={(e) => setEditReportForm({ ...editReportForm, location: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Featured Photograph</span>
-                      <label className="cursor-pointer text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                        <Upload className="w-3 h-3" />
-                        {uploadingImage ? 'Uploading...' : 'Upload'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleNewsImageUpload(e, true)}
-                        />
-                      </label>
-                    </label>
-                    <input
-                      type="text"
-                      value={editReportForm.thumbnail}
-                      onChange={(e) => setEditReportForm({ ...editReportForm, thumbnail: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
-                    />
-                    {editReportForm.thumbnail && (
-                      <div className="mt-2 relative w-20 h-14 rounded overflow-hidden border border-slate-700 bg-slate-800">
-                        <img
-                          src={getMediaUrl(editReportForm.thumbnail)}
-                          alt="Thumbnail"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Video Clip (Upload File or URL)</span>
-                      <label className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 transition-all ${
-                        uploadingEditVideo
-                          ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
-                          : 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border-amber-800/80'
-                      }`}>
-                        <Upload className="w-3 h-3" />
-                        {uploadingEditVideo ? 'Uploading...' : 'Upload Video'}
-                        <input
-                          type="file"
-                          accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
-                          disabled={uploadingEditVideo}
-                          className="hidden"
-                          onChange={(e) => handleNewsVideoUpload(e, true)}
-                        />
-                      </label>
-                    </label>
-                    <input
-                      type="text"
-                      value={editReportForm.videoUrl}
-                      onChange={(e) => setEditReportForm({ ...editReportForm, videoUrl: e.target.value })}
-                      placeholder="Upload file above or paste YouTube / MP4 URL..."
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
-                    />
-                    {editReportForm.videoUrl && (
-                      <div className="mt-1.5 p-1.5 px-2.5 rounded bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
-                        <span className="truncate max-w-[240px]">✓ Video: {editReportForm.videoUrl}</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditReportForm({ ...editReportForm, videoUrl: '' })}
-                          className="text-red-400 hover:text-red-300 text-[10px]"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                    <label className="font-bold text-slate-300">Detailed Report Body *</label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => insertMarkdownTag('heading', true)}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      >
-                        H3
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertMarkdownTag('bold', true)}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      >
-                        **B**
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertMarkdownTag('quote', true)}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      >
-                        &gt; Quote
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertMarkdownTag('bullet', true)}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700"
-                      >
-                        - List
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditPreviewMarkdown(!editPreviewMarkdown)}
-                        className={`px-2.5 py-0.5 text-[10px] font-bold rounded flex items-center gap-1 ${
-                          editPreviewMarkdown
-                            ? 'bg-amber-500 text-slate-950'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                        }`}
-                      >
-                        <Eye className="w-3 h-3" />
-                        {editPreviewMarkdown ? 'Editing' : 'Preview'}
-                      </button>
+              {/* Scrollable Form Body */}
+              <form onSubmit={handleEditReportSubmit} className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 text-xs flex flex-col">
+                <div className="space-y-4">
+                  {editingReport.status === 'rejected' && editingReport.rejectionReason && (
+                    <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-800 text-xs text-red-200">
+                      <strong className="text-red-300 block mb-0.5">Editor Feedback to Address:</strong>
+                      {editingReport.rejectionReason}
                     </div>
-                  </div>
-
-                  {editPreviewMarkdown ? (
-                    <div className="w-full min-h-[160px] p-4 bg-slate-950 border border-amber-500/40 rounded-xl text-white">
-                      {editReportForm.content ? (
-                        <MarkdownView content={editReportForm.content} isDark={true} />
-                      ) : (
-                        <span className="text-slate-500 italic text-xs">No body content</span>
-                      )}
-                    </div>
-                  ) : (
-                    <textarea
-                      rows={6}
-                      required
-                      value={editReportForm.content}
-                      onChange={(e) => setEditReportForm({ ...editReportForm, content: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-sans leading-relaxed"
-                    />
                   )}
+
+                  {/* Headline & Subtitle */}
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Headline / Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editReportForm.title}
+                      onChange={(e) => setEditReportForm({ ...editReportForm, title: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">Subtitle / Summary Lead</label>
+                    <input
+                      type="text"
+                      value={editReportForm.subtitle}
+                      onChange={(e) => setEditReportForm({ ...editReportForm, subtitle: e.target.value })}
+                      placeholder="Concise 1-2 sentence lead summarizing the story..."
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* 2-Column Responsive Grid: Metadata & Media */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Left: Categories, Dateline, Tags */}
+                    <div className="space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block font-bold text-slate-300">
+                            Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                          </label>
+                          <span className="text-[11px] text-slate-400 font-bold">
+                            {(editReportForm.categories || []).length} selected
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                          {categories.map((c) => {
+                            const isSelected = (editReportForm.categories || []).includes(c._id) || (editReportForm.categories?.length === 0 && editReportForm.category === c._id);
+                            return (
+                              <button
+                                key={c._id}
+                                type="button"
+                                onClick={() => {
+                                  const current = (editReportForm.categories && editReportForm.categories.length > 0)
+                                    ? editReportForm.categories
+                                    : (editReportForm.category ? [editReportForm.category] : []);
+                                  let updated;
+                                  if (current.includes(c._id)) {
+                                    updated = current.filter((id) => id !== c._id);
+                                  } else {
+                                    updated = [...current, c._id];
+                                  }
+                                  setEditReportForm({
+                                    ...editReportForm,
+                                    categories: updated,
+                                    category: updated[0] || '',
+                                  });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                                  ? 'bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-300'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                                  }`}
+                              >
+                                <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                                <span>{c.name}</span>
+                                {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-300 mb-1">Dateline / Location *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editReportForm.location}
+                          onChange={(e) => setEditReportForm({ ...editReportForm, location: e.target.value })}
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-300 mb-1">Tags (comma separated)</label>
+                        <input
+                          type="text"
+                          value={editReportForm.tags}
+                          onChange={(e) => setEditReportForm({ ...editReportForm, tags: e.target.value })}
+                          placeholder="e.g. Flood, Roadways, Kishanganj"
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right: Media Section */}
+                    <div className="space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                      <div>
+                        <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <ImageIcon className="w-3.5 h-3.5 text-amber-400" /> Featured Photograph
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {editReportForm.thumbnail && (
+                              <button
+                                type="button"
+                                onClick={() => setEditReportForm((prev) => ({ ...prev, thumbnail: '' }))}
+                                className="text-[11px] font-bold text-red-400 hover:text-red-300 flex items-center gap-0.5 cursor-pointer"
+                                title="Remove photograph"
+                              >
+                                <X className="w-3 h-3" />
+                                <span>Clear</span>
+                              </button>
+                            )}
+                            <label className="cursor-pointer text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                              <Upload className="w-3 h-3" />
+                              {uploadingImage ? 'Uploading...' : 'Upload'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleNewsImageUpload(e, true)}
+                              />
+                            </label>
+                          </div>
+                        </label>
+                        <input
+                          type="text"
+                          value={editReportForm.thumbnail}
+                          onChange={(e) => setEditReportForm({ ...editReportForm, thumbnail: e.target.value })}
+                          placeholder="Upload or paste image URL..."
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-amber-500"
+                        />
+                        {/* Large Image Preview with X button and Watermark Indicator */}
+                        {editReportForm.thumbnail && (
+                          <div className="mt-2.5 relative w-full aspect-video max-h-72 rounded-xl overflow-hidden border-2 border-slate-700 bg-black shadow-xl group">
+                            <img
+                              src={getMediaUrl(editReportForm.thumbnail)}
+                              alt="Thumbnail"
+                              className="w-full h-full object-contain bg-slate-950"
+                            />
+                            {/* Remove 'X' button */}
+                            <button
+                              type="button"
+                              onClick={() => setEditReportForm((prev) => ({ ...prev, thumbnail: '' }))}
+                              className="absolute top-2.5 right-2.5 z-20 w-8 h-8 rounded-full bg-slate-900/90 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/80 flex items-center justify-center transition-all shadow-lg backdrop-blur-sm cursor-pointer"
+                              title="Remove image"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            {/* Top-Left Preview Badge */}
+                            <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded bg-black/75 text-[10px] font-semibold text-slate-300 border border-white/10 backdrop-blur-sm flex items-center gap-1 pointer-events-none">
+                              <ImageIcon className="w-3 h-3 text-amber-400" />
+                              <span>Photo Preview</span>
+                            </div>
+                            {/* Watermark Overlay Badge if enabled */}
+                            {editReportForm.watermarkPhoto && (
+                              <div className="absolute bottom-2.5 right-2.5 z-10 pointer-events-none select-none flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950/85 backdrop-blur-md border border-amber-500/60 shadow-lg text-white">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span className="text-[10px] font-black tracking-wide text-amber-300">
+                                  सीमांचल एक्सप्रेस वॉटरमार्क
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Video className="w-3.5 h-3.5 text-red-500" /> Video Clip (Upload File or URL)
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {editReportForm.videoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setEditReportForm((prev) => ({ ...prev, videoUrl: '' }))}
+                                className="text-[11px] font-bold text-red-400 hover:text-red-300 flex items-center gap-0.5 cursor-pointer"
+                                title="Remove video"
+                              >
+                                <X className="w-3 h-3" />
+                                <span>Clear</span>
+                              </button>
+                            )}
+                            <label className={`cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 transition-all ${uploadingEditVideo
+                              ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                              : 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border-amber-800/80'
+                              }`}>
+                              <Upload className="w-3 h-3" />
+                              {uploadingEditVideo ? 'Uploading...' : 'Upload Video'}
+                              <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                                disabled={uploadingEditVideo}
+                                className="hidden"
+                                onChange={(e) => handleNewsVideoUpload(e, true)}
+                              />
+                            </label>
+                          </div>
+                        </label>
+                        <input
+                          type="text"
+                          value={editReportForm.videoUrl}
+                          onChange={(e) => setEditReportForm({ ...editReportForm, videoUrl: e.target.value })}
+                          placeholder="Upload file above or paste YouTube / MP4 URL..."
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-amber-500"
+                        />
+
+                        {/* Large Video Preview with Watermark & X Close Button */}
+                        {editReportForm.videoUrl && (
+                          <div className="mt-2.5 space-y-2">
+                            <div className="relative w-full aspect-video max-h-72 rounded-xl overflow-hidden border-2 border-slate-700 bg-black shadow-xl">
+                              {editReportForm.videoUrl.includes('youtube.com') || editReportForm.videoUrl.includes('youtu.be') ? (
+                                <iframe
+                                  src={
+                                    editReportForm.videoUrl.includes('watch?v=')
+                                      ? editReportForm.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
+                                      : editReportForm.videoUrl.includes('youtu.be/')
+                                        ? editReportForm.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                                        : editReportForm.videoUrl
+                                  }
+                                  title="Video Preview"
+                                  className="w-full h-full border-0 pointer-events-none"
+                                />
+                              ) : (
+                                <video
+                                  src={getMediaUrl(editReportForm.videoUrl)}
+                                  controls
+                                  className="w-full h-full object-contain"
+                                />
+                              )}
+
+                              {/* Top-Right 'X' Close Button */}
+                              <button
+                                type="button"
+                                onClick={() => setEditReportForm((prev) => ({ ...prev, videoUrl: '' }))}
+                                className="absolute top-2.5 right-2.5 z-30 w-8 h-8 rounded-full bg-slate-900/90 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/80 flex items-center justify-center transition-all shadow-lg backdrop-blur-sm cursor-pointer"
+                                title="Remove video"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+
+                              {/* Top-Left Preview Badge */}
+                              <div className="absolute top-2.5 left-2.5 z-20 px-2 py-0.5 rounded bg-black/75 text-[10px] font-semibold text-slate-300 border border-white/10 backdrop-blur-sm flex items-center gap-1 pointer-events-none">
+                                <Video className="w-3 h-3 text-red-400" />
+                                <span>Video Preview</span>
+                              </div>
+
+                              {/* Video Watermark Overlay Badge if enabled */}
+                              {editReportForm.watermarkVideo && <VideoWatermarkBadge />}
+                            </div>
+
+                            <div className="p-2 px-3 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] text-emerald-400 flex items-center justify-between">
+                              <span className="truncate max-w-[280px]">✓ Video Attached: {editReportForm.videoUrl}</span>
+                              <button
+                                type="button"
+                                onClick={() => setEditReportForm((prev) => ({ ...prev, videoUrl: '' }))}
+                                className="text-red-400 hover:text-red-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" /> Remove
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Separate Watermark Options for Photo & Video */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-800/80 border border-slate-700 rounded-xl">
+                    <label className="flex items-start gap-2.5 cursor-pointer text-slate-200 hover:text-white">
+                      <input
+                        type="checkbox"
+                        checked={editReportForm.watermarkPhoto}
+                        onChange={(e) => setEditReportForm({ ...editReportForm, watermarkPhoto: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-600"
+                      />
+                      <div>
+                        <span className="font-bold text-xs block text-slate-200">फोटो पर वॉटरमार्क (Photo Watermark)</span>
+                        <span className="text-[10px] text-slate-400">Apply watermark on uploaded photo</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer text-slate-200 hover:text-white">
+                      <input
+                        type="checkbox"
+                        checked={editReportForm.watermarkVideo}
+                        onChange={(e) => setEditReportForm({ ...editReportForm, watermarkVideo: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded text-red-500 focus:ring-red-500 bg-slate-900 border-slate-600"
+                      />
+                      <div>
+                        <span className="font-bold text-xs block text-slate-200">वीडियो पर वॉटरमार्क (Video Watermark)</span>
+                        <span className="text-[10px] text-slate-400">Display broadcast watermark on video</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Body Content with Markdown Toolbar & Live Preview Toggle */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-800">
+                      <label className="font-bold text-slate-300">Detailed Report Body (Markdown Supported) *</label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('h2', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H2 Main Heading"
+                        >
+                          H2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('heading', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H3 Subheading"
+                        >
+                          H3
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('bold', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bold Text"
+                        >
+                          **B**
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('italic', true)}
+                          className="px-2 py-0.5 text-[10px] italic bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Italic Text"
+                        >
+                          *I*
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('quote', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Quote"
+                        >
+                          &gt; Quote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('bullet', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bullet List"
+                        >
+                          • List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertMarkdownTag('link', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Link"
+                        >
+                          Link
+                        </button>
+
+                        <div className="border-l border-slate-700 h-4 mx-1 hidden sm:block"></div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditPreviewMarkdown(!editPreviewMarkdown)}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors ${editPreviewMarkdown
+                            ? 'bg-amber-500 text-slate-950 shadow-sm'
+                            : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
+                            }`}
+                        >
+                          {editPreviewMarkdown ? (
+                            <>
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Editing Mode</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Live Preview</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {editPreviewMarkdown ? (
+                      <div className="w-full min-h-[300px] max-h-[480px] overflow-y-auto p-5 bg-slate-950 border border-amber-500/40 rounded-xl text-white leading-relaxed">
+                        {editReportForm.content ? (
+                          <MarkdownView content={editReportForm.content} isDark={true} />
+                        ) : (
+                          <span className="text-slate-500 italic text-xs">No body content</span>
+                        )}
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={14}
+                        required
+                        value={editReportForm.content}
+                        onChange={(e) => setEditReportForm({ ...editReportForm, content: e.target.value })}
+                        placeholder="Write the full report here in Markdown format..."
+                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white font-sans leading-relaxed focus:outline-none focus:border-amber-500 text-xs"
+                      />
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={editReportForm.tags}
-                    onChange={(e) => setEditReportForm({ ...editReportForm, tags: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                {/* Sticky Footer */}
+                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3 mt-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setEditingReport(null)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={editReportSubmitting}
-                    className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg shadow-md flex items-center gap-2"
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl shadow-lg flex items-center gap-2 transition-all"
                   >
                     <Send className="w-4 h-4" />
                     {editReportSubmitting ? 'Updating...' : 'Save & Resubmit'}
@@ -2465,9 +3155,9 @@ export default function ReporterDashboard() {
 
         {/* MODAL: Reporter View Own Submission Details with Markdown */}
         {selectedReportModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl p-6 sm:p-8 text-white max-h-[90vh] overflow-y-auto shadow-2xl relative">
-              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl xl:max-w-6xl max-h-[94vh] sm:max-h-[96vh] h-full flex flex-col text-white shadow-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur shrink-0 z-10">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     {Array.isArray(selectedReportModal.categories) && selectedReportModal.categories.length > 0 ? (
@@ -2483,16 +3173,16 @@ export default function ReporterDashboard() {
                     )}
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider ${selectedReportModal.status === 'published'
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                          : selectedReportModal.status === 'pending'
-                            ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                            : 'bg-red-950 text-red-400 border border-red-800'
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                        : selectedReportModal.status === 'pending'
+                          ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                          : 'bg-red-950 text-red-400 border border-red-800'
                         }`}
                     >
                       {selectedReportModal.status === 'published' ? 'Published Live' : selectedReportModal.status}
                     </span>
                   </div>
-                  <h3 className="text-xl font-black text-white leading-tight">
+                  <h3 className="text-lg sm:text-xl font-black text-white leading-tight">
                     {selectedReportModal.title}
                   </h3>
                   {selectedReportModal.subtitle && (
@@ -2504,64 +3194,67 @@ export default function ReporterDashboard() {
 
                 <button
                   onClick={() => setSelectedReportModal(null)}
-                  className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800 shrink-0"
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors shrink-0"
+                  title="Close Modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Status Banner / Feedback */}
-              {selectedReportModal.status === 'rejected' && selectedReportModal.rejectionReason && (
-                <div className="mb-6 p-4 rounded-xl bg-red-950/80 border border-red-800 text-xs text-red-200">
-                  <strong className="text-red-300 block mb-1">Editorial Desk Feedback:</strong>
-                  {selectedReportModal.rejectionReason}
-                </div>
-              )}
-
-              {/* Media Preview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {selectedReportModal.thumbnail && (
-                  <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
-                    <img
-                      src={getMediaUrl(selectedReportModal.thumbnail)}
-                      alt={selectedReportModal.title}
-                      className="w-full h-40 object-cover"
-                    />
+              <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-6">
+                {selectedReportModal.status === 'rejected' && selectedReportModal.rejectionReason && (
+                  <div className="p-4 rounded-xl bg-red-950/80 border border-red-800 text-xs text-red-200">
+                    <strong className="text-red-300 block mb-1">Editorial Desk Feedback:</strong>
+                    {selectedReportModal.rejectionReason}
                   </div>
                 )}
-                {selectedReportModal.videoUrl ? (
-                  <div className="rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video flex items-center justify-center">
-                    <video
-                      src={getMediaUrl(selectedReportModal.videoUrl)}
-                      controls
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-4 flex flex-col items-center justify-center text-center text-slate-500 text-xs">
-                    <Video className="w-8 h-8 text-slate-600 mb-1" />
-                    <span>No Video Attached</span>
-                  </div>
-                )}
-              </div>
 
-              {/* Detailed Report Content (Markdown) */}
-              <div className="mb-6 p-5 rounded-xl bg-slate-800/50 border border-slate-700">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b border-slate-700">
-                  Detailed Report Content (Markdown Formatted)
-                </h4>
-                <div className="text-slate-200 text-xs sm:text-sm">
-                  <MarkdownView content={selectedReportModal.content} isDark={true} />
+                {/* Media Preview */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {selectedReportModal.thumbnail && (
+                    <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
+                      <img
+                        src={getMediaUrl(selectedReportModal.thumbnail)}
+                        alt={selectedReportModal.title}
+                        className="w-full h-48 object-cover"
+                      />
+                    </div>
+                  )}
+                  {selectedReportModal.videoUrl ? (
+                    <div className="rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video flex items-center justify-center">
+                      <video
+                        src={getMediaUrl(selectedReportModal.videoUrl)}
+                        controls
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-4 flex flex-col items-center justify-center text-center text-slate-500 text-xs">
+                      <Video className="w-8 h-8 text-slate-600 mb-1" />
+                      <span>No Video Attached</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Detailed Report Content (Markdown) */}
+                <div className="p-5 rounded-xl bg-slate-800/50 border border-slate-700">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b border-slate-700">
+                    Detailed Report Content (Markdown Formatted)
+                  </h4>
+                  <div className="text-slate-200 text-xs sm:text-sm leading-relaxed">
+                    <MarkdownView content={selectedReportModal.content} isDark={true} />
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
+              <div className="px-5 sm:px-8 py-4 border-t border-slate-800 flex justify-between items-center bg-slate-900/95 shrink-0">
                 <span className="text-xs text-slate-400">
                   Dateline: {selectedReportModal.location} • Views: {selectedReportModal.views || 0}
                 </span>
                 <button
                   onClick={() => setSelectedReportModal(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors"
                 >
                   Close
                 </button>

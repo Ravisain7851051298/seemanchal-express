@@ -38,8 +38,18 @@ const authorize = (...roles) => {
       return next();
     }
 
-    // Reporter suspension check
+    // Reporter rejection & suspension check
     if (req.user.role === 'reporter') {
+      const isRejected =
+        req.user.reporterStatus === 'rejected' || req.user.status === 'rejected';
+      if (isRejected) {
+        return res.status(403).json({
+          success: false,
+          isRejected: true,
+          message: `Your reporter application has been rejected by administration. Reason: ${req.user.rejectionReason || 'Criteria not met'}. Access and actions are denied.`,
+        });
+      }
+
       const isSuspended =
         req.user.reporterStatus === 'suspended' || req.user.status === 'suspended';
       if (isSuspended) {
@@ -51,8 +61,18 @@ const authorize = (...roles) => {
       }
     }
 
-    // Member suspension & expiry check
+    // Member rejection, suspension & expiry check
     if (req.user.role === 'member') {
+      const isRejected =
+        req.user.membershipStatus === 'rejected' || req.user.status === 'rejected';
+      if (isRejected) {
+        return res.status(403).json({
+          success: false,
+          isRejected: true,
+          message: `Your membership application has been rejected by administration. Reason: ${req.user.rejectionReason || 'Criteria not met'}. Access and actions are denied.`,
+        });
+      }
+
       // Dynamic backend expiry validation
       if (
         req.user.membershipExpiryDate &&

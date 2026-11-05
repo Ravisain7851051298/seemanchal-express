@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const LegalDocument = require('../models/LegalDocument');
+const LegalDocumentAcceptance = require('../models/LegalDocumentAcceptance');
 const { protect } = require('../middleware/auth');
 
 // Generate short-lived Access Token (15 mins)
@@ -118,6 +120,29 @@ router.post('/register-member', async (req, res) => {
       bio: bio || '',
     });
 
+    // Record initial mandatory policy acceptance during application
+    try {
+      const memberDocs = await LegalDocument.find({
+        slug: { $in: ['membership-policy', 'member-code-of-conduct'] },
+        status: 'published',
+      });
+      for (const doc of memberDocs) {
+        await LegalDocumentAcceptance.create({
+          userId: user._id,
+          documentId: doc._id,
+          documentSlug: doc.slug,
+          documentTitle: doc.title,
+          versionNumber: doc.version || 1,
+          roleAtAcceptance: 'member',
+          ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+          userAgent: req.headers['user-agent'] || '',
+          acceptedAt: new Date(),
+        }).catch(() => {});
+      }
+    } catch (policyErr) {
+      console.warn('Member initial policy acceptance recording error:', policyErr.message);
+    }
+
     return sendTokenResponse(
       user,
       201,
@@ -173,6 +198,29 @@ router.post('/register-reporter', async (req, res) => {
       pressExperienceYears: Number(pressExperienceYears) || 0,
       bio: bio || '',
     });
+
+    // Record initial mandatory policy acceptance during reporter application
+    try {
+      const reporterDocs = await LegalDocument.find({
+        slug: { $in: ['editorial-policy', 'reporter-agreement', 'reporter-code-of-conduct'] },
+        status: 'published',
+      });
+      for (const doc of reporterDocs) {
+        await LegalDocumentAcceptance.create({
+          userId: user._id,
+          documentId: doc._id,
+          documentSlug: doc.slug,
+          documentTitle: doc.title,
+          versionNumber: doc.version || 1,
+          roleAtAcceptance: 'reporter',
+          ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+          userAgent: req.headers['user-agent'] || '',
+          acceptedAt: new Date(),
+        }).catch(() => {});
+      }
+    } catch (policyErr) {
+      console.warn('Reporter initial policy acceptance recording error:', policyErr.message);
+    }
 
     return sendTokenResponse(
       user,

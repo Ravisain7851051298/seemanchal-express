@@ -216,8 +216,8 @@ export default function SingleNewsPage() {
                   Your browser does not support HTML5 video.
                 </video>
               )}
-              {/* Official News Watermark Badge on Video */}
-              <VideoWatermarkBadge />
+              {/* Official News Watermark Badge on Video (if enabled) */}
+              {(news.watermarkVideo || news.hasWatermark) && <VideoWatermarkBadge />}
             </div>
           )}
 

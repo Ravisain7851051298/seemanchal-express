@@ -46,6 +46,7 @@ import {
   EyeOff,
   BarChart3,
   ChevronDown,
+  ImageIcon,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import {
@@ -78,6 +79,7 @@ import ComplaintsDeskSection from '../../components/admin/ComplaintsDeskSection'
 import AdminActivityLogsSection from '../../components/admin/AdminActivityLogsSection';
 import SiteSettingsSection from '../../components/admin/SiteSettingsSection';
 import AnalyticsDashboardGraphs from '../../components/admin/AnalyticsDashboardGraphs';
+import AdminDashboardSkeleton from '../../components/admin/AdminDashboardSkeleton';
 import applyWatermarkToImage, { VideoWatermarkBadge } from '../../lib/watermarkHelper';
 
 export default function AdminDashboard() {
@@ -166,6 +168,7 @@ export default function AdminDashboard() {
 
   // Add News Modal State
   const [showAddNewsModal, setShowAddNewsModal] = useState(false);
+  const [newNewsPreview, setNewNewsPreview] = useState(false);
   const [newNewsForm, setNewNewsForm] = useState({
     title: '',
     subtitle: '',
@@ -178,7 +181,8 @@ export default function AdminDashboard() {
     isBreaking: false,
     isFeatured: false,
     isTrending: false,
-    addWatermark: true,
+    watermarkPhoto: false,
+    watermarkVideo: false,
     policyAccepted: true,
     tags: '',
   });
@@ -197,7 +201,8 @@ export default function AdminDashboard() {
     isBreaking: false,
     isFeatured: false,
     isTrending: false,
-    addWatermark: true,
+    watermarkPhoto: true,
+    watermarkVideo: true,
     policyAccepted: true,
     tags: '',
   });
@@ -714,11 +719,30 @@ export default function AdminDashboard() {
           isTrending: false,
           tags: '',
         });
+        setNewNewsPreview(false);
         alert('Article published live on the website!');
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Publishing failed');
     }
+  };
+
+  // Quick Markdown tag inserter for Admin News modals
+  const insertNewsMarkdownTag = (tagType, isEdit = false) => {
+    const setForm = isEdit ? setEditNewsForm : setNewNewsForm;
+    let snippet = '';
+    if (tagType === 'h2') snippet = '\n\n## Main Section Heading\n';
+    if (tagType === 'h3') snippet = '\n\n### Subheading / Dateline Point\n';
+    if (tagType === 'bold') snippet = '**Bold Headline** ';
+    if (tagType === 'italic') snippet = '*Italic Emphasis* ';
+    if (tagType === 'quote') snippet = '\n> "Official quotation or witness statement..."\n';
+    if (tagType === 'bullet') snippet = '\n- Key development point 1\n- Key development point 2\n';
+    if (tagType === 'link') snippet = ' [Link Title](https://example.com) ';
+
+    setForm((prev) => ({
+      ...prev,
+      content: (prev.content || '') + snippet,
+    }));
   };
 
   // Open Edit News Story Modal
@@ -745,6 +769,9 @@ export default function AdminDashboard() {
       isBreaking: Boolean(story.isBreaking),
       isFeatured: Boolean(story.isFeatured),
       isTrending: Boolean(story.isTrending),
+      watermarkPhoto: story.watermarkPhoto !== undefined ? Boolean(story.watermarkPhoto) : Boolean(story.hasWatermark),
+      watermarkVideo: story.watermarkVideo !== undefined ? Boolean(story.watermarkVideo) : Boolean(story.hasWatermark),
+      policyAccepted: story.policyAccepted !== undefined ? Boolean(story.policyAccepted) : true,
       tags: Array.isArray(story.tags) ? story.tags.join(', ') : story.tags || '',
     });
     setEditNewsPreview(false);
@@ -793,7 +820,7 @@ export default function AdminDashboard() {
     setNewsImageUploading(true);
     try {
       let finalFile = file;
-      if (newNewsForm.addWatermark) {
+      if (newNewsForm.watermarkPhoto) {
         finalFile = await applyWatermarkToImage(file);
       }
       const formData = new FormData();
@@ -838,7 +865,7 @@ export default function AdminDashboard() {
     setEditNewsUploading(true);
     try {
       let finalFile = file;
-      if (editNewsForm.addWatermark) {
+      if (editNewsForm.watermarkPhoto) {
         finalFile = await applyWatermarkToImage(file);
       }
       const formData = new FormData();
@@ -891,10 +918,37 @@ export default function AdminDashboard() {
     }
   };
 
-  if (authLoading || !user || user.role !== 'admin') {
+  // 1. While authentication is verifying OR while initial admin data is loading:
+  if (authLoading || (user && user.role === 'admin' && loading && !stats.totalReporters && !users.length)) {
+    return <AdminDashboardSkeleton />;
+  }
+
+  // 2. If finished loading and user is not authenticated or not admin:
+  if (!user || user.role !== 'admin') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700/80 text-red-500 flex items-center justify-center mb-4 shadow-2xl">
+          <Shield className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-white mb-2">Admin Access Required</h2>
+        <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
+          You need active administrator credentials to access the Seemanchal Express central governance desk.
+        </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition-all flex items-center gap-1.5"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Sign in as Administrator</span>
+          </Link>
+          <Link
+            href="/"
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all"
+          >
+            Return to Homepage
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1685,7 +1739,7 @@ export default function AdminDashboard() {
             </div>
 
             {filteredMembers.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto min-h-[420px]">
                 <table className="w-full text-left text-xs text-slate-300">
                   <thead className="bg-slate-800/80 text-white uppercase font-bold text-[11px] border-b border-slate-700">
                     <tr>
@@ -1698,157 +1752,163 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {filteredMembers.map((m) => (
-                      <tr key={m._id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4 flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700 shrink-0 border border-slate-600">
-                            <img
-                              src={getMediaUrl(m.photo)}
-                              alt={m.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div>
-                            <strong className="text-white block font-bold">{m.name}</strong>
-                            <span className="text-[10px] text-slate-400">{m.phone}</span>
-                          </div>
-                        </td>
+                    {filteredMembers.map((m, idx) => {
+                      const isNearBottom = filteredMembers.length >= 3 && idx >= Math.max(1, filteredMembers.length - 3);
+                      return (
+                        <tr key={m._id} className={`hover:bg-slate-800/40 transition-colors ${activeMemberActionMenu === m._id ? 'relative z-30' : ''}`}>
+                          <td className="py-3.5 px-4 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700 shrink-0 border border-slate-600">
+                              <img
+                                src={getMediaUrl(m.photo)}
+                                alt={m.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div>
+                              <strong className="text-white block font-bold">{m.name}</strong>
+                              <span className="text-[10px] text-slate-400">{m.phone}</span>
+                            </div>
+                          </td>
 
-                        <td className="py-3.5 px-4">
-                          <strong className="text-white block font-semibold">
-                            {m.assignedDesignation || 'Unassigned'}
-                          </strong>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase font-bold border border-slate-700">
-                            {m.committeeLevel || 'General'}
-                          </span>
-                        </td>
+                          <td className="py-3.5 px-4">
+                            <strong className="text-white block font-semibold">
+                              {m.assignedDesignation || 'Unassigned'}
+                            </strong>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase font-bold border border-slate-700">
+                              {m.committeeLevel || 'General'}
+                            </span>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-slate-300">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-red-400" />
-                            {m.assignedLocation || m.reportingAreaPreference || 'National'}
-                          </span>
-                        </td>
+                          <td className="py-3.5 px-4 text-slate-300">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5 text-red-400" />
+                              {m.assignedLocation || m.reportingAreaPreference || 'National'}
+                            </span>
+                          </td>
 
-                        <td className="py-3.5 px-4 font-mono text-[11px] font-bold text-amber-400">
-                          {m.idCardNumber || 'N/A'}
-                        </td>
+                          <td className="py-3.5 px-4 font-mono text-[11px] font-bold text-amber-400">
+                            {m.idCardNumber || 'N/A'}
+                          </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            onClick={() => handleToggleTeamDisplay(m)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-sm ${m.showOnTeamPage
-                              ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
-                              : 'bg-slate-800 text-slate-400 hover:bg-slate-750 border border-slate-700'
-                              }`}
-                          >
-                            {m.showOnTeamPage ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" /> Public (Visible)
-                              </>
-                            ) : (
-                              <>
-                                <X className="w-3.5 h-3.5 text-slate-500" /> Hidden
-                              </>
-                            )}
-                          </button>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right relative">
-                          <div className="inline-block text-left">
+                          <td className="py-3.5 px-4 text-center">
                             <button
-                              type="button"
-                              onClick={() => setActiveMemberActionMenu(activeMemberActionMenu === m._id ? null : m._id)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                              onClick={() => handleToggleTeamDisplay(m)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-sm ${m.showOnTeamPage
+                                ? 'bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
+                                : 'bg-slate-800 text-slate-400 hover:bg-slate-750 border border-slate-700'
+                                }`}
                             >
-                              <span>Action</span>
-                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeMemberActionMenu === m._id ? 'rotate-180' : ''}`} />
+                              {m.showOnTeamPage ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Public (Visible)
+                                </>
+                              ) : (
+                                <>
+                                  <X className="w-3.5 h-3.5 text-slate-500" /> Hidden
+                                </>
+                              )}
                             </button>
+                          </td>
 
-                            {activeMemberActionMenu === m._id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-30"
-                                  onClick={() => setActiveMemberActionMenu(null)}
-                                />
-                                <div className="absolute right-4 mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs">
-                                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
-                                    Action: {m.name}
-                                  </div>
+                          <td className={`py-3.5 px-4 text-right ${activeMemberActionMenu === m._id ? 'relative z-30' : ''}`}>
+                            <div className="inline-block text-left relative">
+                              <button
+                                type="button"
+                                onClick={() => setActiveMemberActionMenu(activeMemberActionMenu === m._id ? null : m._id)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                              >
+                                <span>Action</span>
+                                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeMemberActionMenu === m._id ? 'rotate-180' : ''}`} />
+                              </button>
 
-                                  {/* Change Designation */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMemberActionMenu(null);
-                                      openEditMemberModal(m);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-blue-950/70 hover:text-blue-300 font-semibold transition-colors text-left"
+                              {activeMemberActionMenu === m._id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-30"
+                                    onClick={() => setActiveMemberActionMenu(null)}
+                                  />
+                                  <div
+                                    className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+                                      } w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl z-40 p-1.5 space-y-1 text-left text-xs animate-in fade-in zoom-in-95 duration-100`}
                                   >
-                                    <Award className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                    <span>Change Designation</span>
-                                  </button>
+                                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                                      Action: {m.name}
+                                    </div>
 
-                                  {/* Remove Designation */}
-                                  {m.assignedDesignation && (
+                                    {/* Change Designation */}
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setActiveMemberActionMenu(null);
-                                        handleRemoveMemberDesignation(m);
+                                        openEditMemberModal(m);
                                       }}
-                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-950/70 font-semibold transition-colors text-left"
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-blue-950/70 hover:text-blue-300 font-semibold transition-colors text-left"
                                     >
-                                      <UserX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                                      <span>Remove Designation</span>
+                                      <Award className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                      <span>Change Designation</span>
                                     </button>
-                                  )}
 
-                                  {/* Digital ID Card */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMemberActionMenu(null);
-                                      setViewIdCardUser(m);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
-                                  >
-                                    <Award className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                                    <span>View Digital ID Card</span>
-                                  </button>
+                                    {/* Remove Designation */}
+                                    {m.assignedDesignation && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveMemberActionMenu(null);
+                                          handleRemoveMemberDesignation(m);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-950/70 font-semibold transition-colors text-left"
+                                      >
+                                        <UserX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                        <span>Remove Designation</span>
+                                      </button>
+                                    )}
 
-                                  {/* Appointment Letter */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMemberActionMenu(null);
-                                      setViewLetterUser(m);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
-                                  >
-                                    <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span>Appointment Letter</span>
-                                  </button>
+                                    {/* Digital ID Card */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMemberActionMenu(null);
+                                        setViewIdCardUser(m);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
+                                    >
+                                      <Award className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                      <span>View Digital ID Card</span>
+                                    </button>
 
-                                  {/* Delete User */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMemberActionMenu(null);
-                                      handleDeleteUser(m._id);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-950/70 font-semibold transition-colors text-left border-t border-slate-800/80 pt-1.5"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                    <span>Delete Member</span>
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                    {/* Appointment Letter */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMemberActionMenu(null);
+                                        setViewLetterUser(m);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-slate-800 font-semibold transition-colors text-left"
+                                    >
+                                      <Printer className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <span>Appointment Letter</span>
+                                    </button>
+
+                                    {/* Delete User */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMemberActionMenu(null);
+                                        handleDeleteUser(m._id);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-950/70 font-semibold transition-colors text-left border-t border-slate-800/80 pt-1.5"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                      <span>Delete Member</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2037,27 +2097,8 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Actions & Status Cluster */}
-                    <div className="flex flex-wrap items-center gap-2 self-start xl:self-center shrink-0">
-                      {/* View Report */}
-                      <button
-                        onClick={() => setViewReportModalStory(story)}
-                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-700 transition-colors shadow-sm"
-                        title="View Full Report and Author Bio"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-sky-400" />
-                        <span>View</span>
-                      </button>
-
-                      {/* Edition & Submition - Edit Story Button */}
-                      <button
-                        onClick={() => openEditNewsModal(story)}
-                        className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 border border-amber-800 transition-colors shadow-sm"
-                        title="Edit and Update Story Content"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Edit</span>
-                      </button>
-
+                    <div className="flex flex-col items-start xl:items-end gap-1.5 shrink-0 self-start xl:self-center">
+                      {/* Top Row: Middle Actions */}
                       {/* Editorial Showcase One-Click Toggles in Clean Pill Group */}
                       {story.status === 'published' && (
                         <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
@@ -2102,17 +2143,6 @@ export default function AdminDashboard() {
                         </div>
                       )}
 
-                      {story.status === 'published' && (
-                        <Link
-                          href={`/news/${story.slug}`}
-                          target="_blank"
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-sky-400 rounded-lg border border-slate-700 transition-colors"
-                          title="View Live on Website"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Link>
-                      )}
-
                       {story.status === 'pending' && (
                         <div className="flex items-center gap-1">
                           <button
@@ -2130,13 +2160,49 @@ export default function AdminDashboard() {
                         </div>
                       )}
 
-                      <button
-                        onClick={() => handleDeleteNews(story._id)}
-                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-950/60 rounded-lg border border-slate-800 hover:border-red-900/60 transition-colors"
-                        title="Delete Story"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Bottom Row: Left 2 Actions (View, Edit) & Right 2 Actions (External Link, Delete) */}
+                      <div className="flex items-center gap-1.5">
+                        {/* Left Action 1: View */}
+                        <button
+                          onClick={() => setViewReportModalStory(story)}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-700 transition-colors shadow-sm"
+                          title="View Full Report and Author Bio"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-sky-400" />
+                          <span>View</span>
+                        </button>
+
+                        {/* Left Action 2: Edit */}
+                        <button
+                          onClick={() => openEditNewsModal(story)}
+                          className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 border border-amber-800 transition-colors shadow-sm"
+                          title="Edit and Update Story Content"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Edit</span>
+                        </button>
+
+                        {/* Right Action 1: External Link (View Live on Website) */}
+                        {story.status === 'published' && (
+                          <Link
+                            href={`/news/${story.slug}`}
+                            target="_blank"
+                            className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-sky-400 rounded-lg border border-slate-700 transition-colors"
+                            title="View Live on Website"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+
+                        {/* Right Action 2: Delete Story */}
+                        <button
+                          onClick={() => handleDeleteNews(story._id)}
+                          className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-950/60 rounded-lg border border-slate-800 hover:border-red-900/60 transition-colors"
+                          title="Delete Story"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -2959,7 +3025,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
+                  <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
                     <span>Priority / Display Order (Navbar Sequence) *</span>
                     <span className="text-[10px] text-slate-400">Lower number = Leftmost</span>
                   </label>
@@ -3002,374 +3068,563 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* MODAL 8: Publish News Modal (With Video Support!) */}
+        {/* MODAL 8: Publish News Modal (With Video Support & Markdown Support - Full-Screen Spacious) */}
         {showAddNewsModal && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-slate-900 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-800 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-base font-bold text-white mb-4 border-b border-slate-800 pb-2">
-                Publish News Article Live
-              </h3>
-              <form onSubmit={handleAddNewsSubmit} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Headline *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newNewsForm.title}
-                    onChange={(e) => setNewNewsForm({ ...newNewsForm, title: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Subtitle / Summary Lead</label>
-                  <input
-                    type="text"
-                    value={newNewsForm.subtitle}
-                    onChange={(e) => setNewNewsForm({ ...newNewsForm, subtitle: e.target.value })}
-                    placeholder="Concise 1-2 sentence lead summarizing the story..."
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-bold text-slate-300">
-                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      {(newNewsForm.categories || []).length} selected
-                    </span>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-6xl xl:max-w-7xl max-h-[94vh] sm:max-h-[96vh] h-full flex flex-col shadow-2xl text-white overflow-hidden">
+              {/* Modal Sticky Header with Close Button */}
+              <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur shrink-0 z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/40 text-red-400 flex items-center justify-center shrink-0">
+                    <Newspaper className="w-5 h-5" />
                   </div>
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
-                    {categories.map((c) => {
-                      const isSelected = (newNewsForm.categories || []).includes(c._id) || (newNewsForm.categories?.length === 0 && newNewsForm.category === c._id);
-                      return (
-                        <button
-                          key={c._id}
-                          type="button"
-                          onClick={() => {
-                            const current = (newNewsForm.categories && newNewsForm.categories.length > 0)
-                              ? newNewsForm.categories
-                              : (newNewsForm.category ? [newNewsForm.category] : []);
-                            let updated;
-                            if (current.includes(c._id)) {
-                              updated = current.filter((id) => id !== c._id);
-                            } else {
-                              updated = [...current, c._id];
-                            }
-                            setNewNewsForm({
-                              ...newNewsForm,
-                              categories: updated,
-                              category: updated[0] || '',
-                            });
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
-                            ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 font-bold'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                            }`}
-                        >
-                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
-                          <span>{c.name}</span>
-                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Dateline / Reporting Location</label>
-                  <input
-                    type="text"
-                    value={newNewsForm.location}
-                    onChange={(e) => setNewNewsForm({ ...newNewsForm, location: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-                  />
-                </div>
-
-                {/* Media Section: Featured Photo & Video Coverage */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Photo Upload & URL */}
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Featured Photo (Upload or URL) *</span>
-                      {newNewsForm.thumbnail && (
-                        <button
-                          type="button"
-                          onClick={() => setNewNewsForm({ ...newNewsForm, thumbnail: '' })}
-                          className="text-[10px] text-red-400 hover:text-red-300 font-normal"
-                        >
-                          ✕ Clear
-                        </button>
-                      )}
-                    </label>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${newsImageUploading
-                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-blue-950/80 hover:bg-blue-900 border-blue-800/80 text-blue-200'
-                          }`}>
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{newsImageUploading ? 'Processing...' : 'Upload Photo'}</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={newsImageUploading}
-                            onChange={handleNewsImageUpload}
-                            className="hidden"
-                          />
-                        </label>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-black text-white">
+                        Publish News Article Live
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800 uppercase tracking-wider hidden sm:inline-block">
+                        Central Editorial Desk
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Full-featured news creator with Markdown support, watermarked media, and instant broadcast syndication
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddNewsModal(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Close Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Scrollable Form Body */}
+              <form onSubmit={handleAddNewsSubmit} className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 text-xs flex flex-col">
+                <div className="space-y-4">
+                  {/* Headline & Subtitle */}
+                  <div>
+                    <label className="block font-bold text-slate-200 mb-1">Headline / Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newNewsForm.title}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, title: e.target.value })}
+                      placeholder="e.g. सीमांचल में बाढ़ सुरक्षा पर उच्चस्तरीय बैठक, विशेष निगरानी के निर्देश..."
+                      className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold text-sm focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-200 mb-1">Subtitle / Summary Lead</label>
+                    <input
+                      type="text"
+                      value={newNewsForm.subtitle}
+                      onChange={(e) => setNewNewsForm({ ...newNewsForm, subtitle: e.target.value })}
+                      placeholder="Concise 1-2 sentence lead summarizing the story..."
+                      className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500 text-xs"
+                    />
+                  </div>
+
+                  {/* 2-Column Responsive Grid: Metadata (Left) & Media (Right) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Left Column: Categories & Dateline & Tags */}
+                    <div className="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block font-bold text-slate-300">
+                            Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                          </label>
+                          <span className="text-[11px] text-slate-400 font-bold">
+                            {(newNewsForm.categories || []).length} selected
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                          {categories.map((c) => {
+                            const isSelected = (newNewsForm.categories || []).includes(c._id) || (newNewsForm.categories?.length === 0 && newNewsForm.category === c._id);
+                            return (
+                              <button
+                                key={c._id}
+                                type="button"
+                                onClick={() => {
+                                  const current = (newNewsForm.categories && newNewsForm.categories.length > 0)
+                                    ? newNewsForm.categories
+                                    : (newNewsForm.category ? [newNewsForm.category] : []);
+                                  let updated;
+                                  if (current.includes(c._id)) {
+                                    updated = current.filter((id) => id !== c._id);
+                                  } else {
+                                    updated = [...current, c._id];
+                                  }
+                                  setNewNewsForm({
+                                    ...newNewsForm,
+                                    categories: updated,
+                                    category: updated[0] || '',
+                                  });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                                  ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 font-bold'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                                  }`}
+                              >
+                                <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                                <span>{c.name}</span>
+                                {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-300 mb-1">Dateline / Reporting Location</label>
                         <input
                           type="text"
-                          value={newNewsForm.thumbnail}
-                          onChange={(e) => setNewNewsForm({ ...newNewsForm, thumbnail: e.target.value })}
-                          placeholder="or paste image URL..."
-                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                          value={newNewsForm.location}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, location: e.target.value })}
+                          placeholder="e.g. Kishanganj, Purnea, Patna, New Delhi"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
                         />
                       </div>
 
-                      {newNewsForm.thumbnail && (
-                        <div className="relative w-36 h-20 rounded-lg overflow-hidden border border-slate-700 bg-black group shadow">
-                          <img
-                            src={getMediaUrl(newNewsForm.thumbnail)}
-                            alt="Thumbnail Preview"
-                            className="w-full h-full object-cover"
-                          />
-                          {newNewsForm.addWatermark && (
-                            <div className="absolute bottom-1 right-1 bg-black/85 text-[8px] font-bold px-1.5 py-0.5 rounded text-white border border-red-500/60 flex items-center gap-1 pointer-events-none">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                              <span>वॉटरमार्क</span>
+                      <div>
+                        <label className="block font-bold text-slate-300 mb-1">Tags / Keywords (comma separated)</label>
+                        <input
+                          type="text"
+                          value={newNewsForm.tags}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, tags: e.target.value })}
+                          placeholder="e.g. Bihar, Kishanganj, Politics, Development"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right Column: Media (Featured Photo & Video Coverage) */}
+                    <div className="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      {/* Photo Upload & URL */}
+                      <div>
+                        <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <ImageIcon className="w-3.5 h-3.5 text-blue-400" /> Featured Photo (Upload or URL) *
+                          </span>
+                          {newNewsForm.thumbnail && (
+                            <button
+                              type="button"
+                              onClick={() => setNewNewsForm({ ...newNewsForm, thumbnail: '' })}
+                              className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                            >
+                              ✕ Clear
+                            </button>
+                          )}
+                        </label>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${newsImageUploading
+                              ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                              : 'bg-blue-950/80 hover:bg-blue-900 border-blue-800/80 text-blue-200'
+                              }`}>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>{newsImageUploading ? 'Processing...' : 'Upload Photo'}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={newsImageUploading}
+                                onChange={handleNewsImageUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              value={newNewsForm.thumbnail}
+                              onChange={(e) => setNewNewsForm({ ...newNewsForm, thumbnail: e.target.value })}
+                              placeholder="or paste image URL..."
+                              className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                            />
+                          </div>
+
+                          {newNewsForm.thumbnail && (
+                            <div className="relative w-40 h-24 rounded-lg overflow-hidden border border-slate-700 bg-black group shadow">
+                              <img
+                                src={getMediaUrl(newNewsForm.thumbnail)}
+                                alt="Thumbnail Preview"
+                                className="w-full h-full object-cover"
+                              />
+                              {newNewsForm.watermarkPhoto && (
+                                <div className="absolute bottom-1 right-1 bg-black/85 text-[8px] font-bold px-1.5 py-0.5 rounded text-white border border-red-500/60 flex items-center gap-1 pointer-events-none">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                                  <span>फोटो वॉटरमार्क</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Video Upload & URL */}
-                  <div>
-                    <label className="block font-bold text-slate-300 mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Video className="w-3.5 h-3.5 text-red-500" /> Video Coverage (Upload or URL)
-                      </span>
-                      {newNewsForm.videoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setNewNewsForm({ ...newNewsForm, videoUrl: '' })}
-                          className="text-[10px] text-red-400 hover:text-red-300 font-normal"
-                        >
-                          ✕ Remove Video
-                        </button>
-                      )}
-                    </label>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${videoUploading
-                          ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-200'
-                          }`}>
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{videoUploading ? 'Uploading Video...' : 'Upload Video'}</span>
-                          <input
-                            type="file"
-                            accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
-                            disabled={videoUploading}
-                            onChange={(e) => handleVideoUpload(e, false)}
-                            className="hidden"
-                          />
-                        </label>
-                        <input
-                          type="text"
-                          value={newNewsForm.videoUrl}
-                          onChange={(e) => setNewNewsForm({ ...newNewsForm, videoUrl: e.target.value })}
-                          placeholder="or paste YouTube / MP4 URL"
-                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
-                        />
                       </div>
 
-                      {newNewsForm.videoUrl && (
+                      {/* Video Upload & URL */}
+                      <div>
+                        <label className="font-bold text-slate-300 mb-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Video className="w-3.5 h-3.5 text-red-500" /> Video Coverage (Upload or URL)
+                          </span>
+                          {newNewsForm.videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setNewNewsForm({ ...newNewsForm, videoUrl: '' })}
+                              className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                            >
+                              ✕ Remove Video
+                            </button>
+                          )}
+                        </label>
                         <div className="space-y-1.5">
-                          <div className="p-1.5 px-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
-                            <span className="truncate max-w-[280px]">✓ Video Attached: {newNewsForm.videoUrl}</span>
-                          </div>
-                          {/* Live Video Preview with Watermark overlay */}
-                          <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-black aspect-video max-w-xs shadow">
-                            {newNewsForm.videoUrl.includes('youtube.com') || newNewsForm.videoUrl.includes('youtu.be') ? (
-                              <iframe
-                                src={
-                                  newNewsForm.videoUrl.includes('watch?v=')
-                                    ? newNewsForm.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
-                                    : newNewsForm.videoUrl.includes('youtu.be/')
-                                      ? newNewsForm.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
-                                      : newNewsForm.videoUrl
-                                }
-                                title="Video Preview"
-                                className="w-full h-full border-0 pointer-events-none"
+                          <div className="flex items-center gap-2">
+                            <label className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${videoUploading
+                              ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                              : 'bg-red-950/80 hover:bg-red-900 border-red-800/80 text-red-200'
+                              }`}>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>{videoUploading ? 'Uploading Video...' : 'Upload Video'}</span>
+                              <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                                disabled={videoUploading}
+                                onChange={(e) => handleVideoUpload(e, false)}
+                                className="hidden"
                               />
-                            ) : (
-                              <video src={getMediaUrl(newNewsForm.videoUrl)} className="w-full h-full object-contain" />
-                            )}
-                            {newNewsForm.addWatermark && <VideoWatermarkBadge />}
+                            </label>
+                            <input
+                              type="text"
+                              value={newNewsForm.videoUrl}
+                              onChange={(e) => setNewNewsForm({ ...newNewsForm, videoUrl: e.target.value })}
+                              placeholder="or paste YouTube / MP4 URL"
+                              className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+                            />
                           </div>
+
+                          {newNewsForm.videoUrl && (
+                            <div className="space-y-1.5">
+                              <div className="p-1.5 px-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
+                                <span className="truncate max-w-[280px]">✓ Video Attached: {newNewsForm.videoUrl}</span>
+                              </div>
+                              {/* Live Video Preview with Watermark overlay */}
+                              <div className="relative rounded-lg overflow-hidden border border-slate-700 bg-black aspect-video max-w-xs shadow">
+                                {newNewsForm.videoUrl.includes('youtube.com') || newNewsForm.videoUrl.includes('youtu.be') ? (
+                                  <iframe
+                                    src={
+                                      newNewsForm.videoUrl.includes('watch?v=')
+                                        ? newNewsForm.videoUrl.replace('watch?v=', 'embed/').split('&')[0]
+                                        : newNewsForm.videoUrl.includes('youtu.be/')
+                                          ? newNewsForm.videoUrl.replace('youtu.be/', 'www.youtube.com/embed/')
+                                          : newNewsForm.videoUrl
+                                    }
+                                    title="Video Preview"
+                                    className="w-full h-full border-0 pointer-events-none"
+                                  />
+                                ) : (
+                                  <video src={getMediaUrl(newNewsForm.videoUrl)} className="w-full h-full object-contain" />
+                                )}
+                                {newNewsForm.watermarkVideo && <VideoWatermarkBadge />}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Watermark & Policy Settings */}
-                <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newNewsForm.addWatermark}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, addWatermark: e.target.checked })}
-                      className="mt-0.5 rounded text-red-600"
-                    />
-                    <div>
-                      <span className="font-bold text-white flex items-center gap-1.5 text-xs">
-                        <Shield className="w-3.5 h-3.5 text-red-400" />
-                        Add Watermark on Image and on Video (फोटो एवं वीडियो पर वॉटरमार्क जोड़ें)
-                      </span>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        अपलोड की जाने वाली फोटो पर &apos;सीमांचल एक्सप्रेस&apos; का आधिकारिक डिजिटल वॉटरमार्क स्वतः स्टैम्प होगा तथा वीडियो पर लाइव चैनल ब्रॉडकास्ट बैज प्रदर्शित होगा।
-                      </p>
+                  {/* Watermark & Policy Settings */}
+                  <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex items-start gap-2.5 cursor-pointer bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                        <input
+                          type="checkbox"
+                          checked={newNewsForm.watermarkPhoto}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, watermarkPhoto: e.target.checked })}
+                          className="mt-0.5 rounded text-red-600"
+                        />
+                        <div>
+                          <span className="font-bold text-white flex items-center gap-1.5 text-xs">
+                            <ImageIcon className="w-3.5 h-3.5 text-red-400" />
+                            Add Watermark on Photo / Image (फोटो वॉटरमार्क)
+                          </span>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            अपलोड की जाने वाली फोटो पर &apos;सीमांचल एक्सप्रेस&apos; का आधिकारिक डिजिटल वॉटरमार्क स्वतः स्टैम्प होगा।
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 cursor-pointer bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                        <input
+                          type="checkbox"
+                          checked={newNewsForm.watermarkVideo}
+                          onChange={(e) => setNewNewsForm({ ...newNewsForm, watermarkVideo: e.target.checked })}
+                          className="mt-0.5 rounded text-red-600"
+                        />
+                        <div>
+                          <span className="font-bold text-white flex items-center gap-1.5 text-xs">
+                            <Video className="w-3.5 h-3.5 text-amber-400" />
+                            Add Watermark on Video (वीडियो वॉटरमार्क)
+                          </span>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            वीडियो प्लेयर पर लाइव चैनल ब्रॉडकास्ट का डिजिटल वॉटरमार्क बैज प्रदर्शित होगा।
+                          </p>
+                        </div>
+                      </label>
                     </div>
-                  </label>
 
-                  <div className="flex items-start gap-2.5 pt-2 border-t border-slate-800/80">
-                    <input
-                      type="checkbox"
-                      id="policyAcceptanceCheckAdmin"
-                      required
-                      checked={newNewsForm.policyAccepted}
-                      onChange={(e) => setNewNewsForm({ ...newNewsForm, policyAccepted: e.target.checked })}
-                      className="mt-1 rounded text-emerald-600 cursor-pointer"
-                    />
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label htmlFor="policyAcceptanceCheckAdmin" className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs cursor-pointer">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          Editorial &amp; Privacy Policy Acceptance (नीति स्वीकृति) *
-                        </label>
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-start gap-2.5 pt-2 border-t border-slate-800/80">
+                      <input
+                        type="checkbox"
+                        id="policyAcceptanceCheckAdmin"
+                        required
+                        checked={newNewsForm.policyAccepted}
+                        onChange={(e) => setNewNewsForm({ ...newNewsForm, policyAccepted: e.target.checked })}
+                        className="mt-1 rounded text-emerald-600 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <label htmlFor="policyAcceptanceCheckAdmin" className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs cursor-pointer">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            Editorial &amp; Privacy Policy Acceptance (नीति स्वीकृति) *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href="/legal/privacy-policy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline inline-flex items-center gap-1 bg-amber-950/60 hover:bg-amber-900/60 px-2 py-0.5 rounded border border-amber-800/80 transition-colors"
+                              title="Read Privacy Policy in new tab"
+                            >
+                              <span>Read Privacy Policy (गोपनीयता नीति पढ़ें)</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                            <a
+                              href="/legal/editorial-policy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] font-bold text-slate-300 hover:text-white underline inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-750 px-2 py-0.5 rounded border border-slate-700 transition-colors"
+                              title="Read Editorial Policy in new tab"
+                            >
+                              <span>Editorial Code</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </div>
+                        <label htmlFor="policyAcceptanceCheckAdmin" className="text-[11px] text-slate-400 mt-1 block leading-relaxed cursor-pointer">
+                          मैं प्रमाणित करता हूँ कि यह समाचार, संलग्न छवियां और वीडियो सामग्री सीमांचल एक्सप्रेस की{' '}
                           <a
                             href="/legal/privacy-policy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline inline-flex items-center gap-1 bg-amber-950/60 hover:bg-amber-900/60 px-2 py-0.5 rounded border border-amber-800/80 transition-colors"
-                            title="Read Privacy Policy in new tab"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-amber-400 hover:text-amber-300 underline font-semibold"
                           >
-                            <span>Read Privacy Policy (गोपनीयता नीति पढ़ें)</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                            गोपनीयता नीति (Privacy Policy)
+                          </a>{' '}
+                          एवं{' '}
                           <a
                             href="/legal/editorial-policy"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold text-slate-300 hover:text-white underline inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-750 px-2 py-0.5 rounded border border-slate-700 transition-colors"
-                            title="Read Editorial Policy in new tab"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-amber-400 hover:text-amber-300 underline font-semibold"
                           >
-                            <span>Editorial Code</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
+                            संपादकीय पत्रकारिता आचार संहिता
+                          </a>{' '}
+                          के पूर्णतः अनुरूप हैं।
+                        </label>
                       </div>
-                      <label htmlFor="policyAcceptanceCheckAdmin" className="text-[11px] text-slate-400 mt-1 block leading-relaxed cursor-pointer">
-                        मैं प्रमाणित करता हूँ कि यह समाचार, संलग्न छवियां और वीडियो सामग्री सीमांचल एक्सप्रेस की{' '}
-                        <a
-                          href="/legal/privacy-policy"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-amber-400 hover:text-amber-300 underline font-semibold"
-                        >
-                          गोपनीयता नीति (Privacy Policy)
-                        </a>{' '}
-                        एवं{' '}
-                        <a
-                          href="/legal/editorial-policy"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-amber-400 hover:text-amber-300 underline font-semibold"
-                        >
-                          संपादकीय पत्रकारिता आचार संहिता
-                        </a>{' '}
-                        के पूर्णतः अनुरूप हैं।
-                      </label>
                     </div>
+                  </div>
+
+                  {/* Article Body with Markdown Toolbar & Live Markdown Preview Toggle */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <label className="block font-bold text-slate-200 text-xs">
+                          Detailed Article Body (Markdown Supported) *
+                        </label>
+                        <span className="text-[10px] text-slate-500 hidden sm:inline">
+                          ({(newNewsForm.content || '').length} characters)
+                        </span>
+                      </div>
+
+                      {/* Formatting Toolbar & Preview Toggle */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('h2', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H2 Section Heading"
+                        >
+                          H2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('h3', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H3 Subheading"
+                        >
+                          H3
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('bold', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bold Text"
+                        >
+                          **B**
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('italic', false)}
+                          className="px-2 py-0.5 text-[10px] italic bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Italic Text"
+                        >
+                          *I*
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('quote', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Blockquote"
+                        >
+                          &gt; Quote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('bullet', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bullet List"
+                        >
+                          • List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('link', false)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Link"
+                        >
+                          Link
+                        </button>
+
+                        <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block"></div>
+
+                        {/* Preview / Edit Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setNewNewsPreview(!newNewsPreview)}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all ${newNewsPreview
+                            ? 'bg-red-600 text-white shadow-sm'
+                            : 'bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700'
+                            }`}
+                        >
+                          {newNewsPreview ? (
+                            <>
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Raw Text</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Live Preview</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {newNewsPreview ? (
+                      <div className="p-4 sm:p-6 bg-slate-950 border border-slate-800 rounded-xl min-h-[280px] max-h-[460px] overflow-y-auto leading-relaxed">
+                        {newNewsForm.content ? (
+                          <MarkdownView content={newNewsForm.content} isDark={true} />
+                        ) : (
+                          <p className="text-slate-500 italic text-center py-10">
+                            No article body written yet. Click &apos;Edit Raw Text&apos; above to write your story.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={12}
+                        required
+                        value={newNewsForm.content}
+                        onChange={(e) => setNewNewsForm({ ...newNewsForm, content: e.target.value })}
+                        placeholder="Write full news article in Markdown format...&#10;&#10;## Section Subheading&#10;Detailed coverage paragraphs...&#10;&#10;> Official quotes from authorities...&#10;&#10;- Key bullet points..."
+                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white leading-relaxed text-xs focus:outline-none focus:border-red-500 font-sans"
+                      />
+                    )}
+                  </div>
+
+                  {/* Editorial Showcases */}
+                  <div className="flex flex-wrap gap-4 p-3.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newNewsForm.isBreaking}
+                        onChange={(e) =>
+                          setNewNewsForm({ ...newNewsForm, isBreaking: e.target.checked })
+                        }
+                        className="rounded text-red-600"
+                      />
+                      <span className="font-bold text-red-400 flex items-center gap-1 text-xs">
+                        <Flame className="w-3.5 h-3.5" /> Breaking News Banner / Ticker
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newNewsForm.isFeatured}
+                        onChange={(e) =>
+                          setNewNewsForm({ ...newNewsForm, isFeatured: e.target.checked })
+                        }
+                        className="rounded text-yellow-500"
+                      />
+                      <span className="font-bold text-yellow-400 flex items-center gap-1 text-xs">
+                        <Sparkles className="w-3.5 h-3.5" /> Top Highlight News Title
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newNewsForm.isTrending}
+                        onChange={(e) =>
+                          setNewNewsForm({ ...newNewsForm, isTrending: e.target.checked })
+                        }
+                        className="rounded text-rose-500"
+                      />
+                      <span className="font-bold text-rose-400 flex items-center gap-1 text-xs">
+                        <TrendingUp className="w-3.5 h-3.5" /> Top Trending Stories
+                      </span>
+                    </label>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">Article Body *</label>
-                  <textarea
-                    rows={6}
-                    required
-                    value={newNewsForm.content}
-                    onChange={(e) => setNewNewsForm({ ...newNewsForm, content: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white leading-relaxed"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-4 p-3 bg-slate-950/60 rounded-xl border border-slate-800">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newNewsForm.isBreaking}
-                      onChange={(e) =>
-                        setNewNewsForm({ ...newNewsForm, isBreaking: e.target.checked })
-                      }
-                      className="rounded text-red-600"
-                    />
-                    <span className="font-bold text-red-400 flex items-center gap-1 text-xs">
-                      <Flame className="w-3.5 h-3.5" /> Breaking News Banner / Ticker
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newNewsForm.isFeatured}
-                      onChange={(e) =>
-                        setNewNewsForm({ ...newNewsForm, isFeatured: e.target.checked })
-                      }
-                      className="rounded text-yellow-500"
-                    />
-                    <span className="font-bold text-yellow-400 flex items-center gap-1 text-xs">
-                      <Sparkles className="w-3.5 h-3.5" /> Top Highlight News Title
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newNewsForm.isTrending}
-                      onChange={(e) =>
-                        setNewNewsForm({ ...newNewsForm, isTrending: e.target.checked })
-                      }
-                      className="rounded text-rose-500"
-                    />
-                    <span className="font-bold text-rose-400 flex items-center gap-1 text-xs">
-                      <TrendingUp className="w-3.5 h-3.5" /> Top Trending Stories
-                    </span>
-                  </label>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddNewsModal(false)}
-                    className="px-4 py-2 bg-slate-800 rounded-lg text-slate-300 font-bold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow"
-                  >
-                    Publish Live
-                  </button>
+                {/* Modal Sticky Footer with Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800 mt-auto shrink-0">
+                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Ready for live publication across Seemanchal Express web &amp; mobile feeds</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddNewsModal(false)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 font-bold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-600/30 transition-all flex items-center gap-2"
+                    >
+                      <Newspaper className="w-4 h-4" />
+                      <span>Publish Live</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -3913,296 +4168,415 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* MODAL 10: Edit News Story (Edition & Submission) */}
+        {/* MODAL 10: Edit News Story (Edition & Submission) - Full-Screen Spacious */}
         {editingNewsStory && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl p-6 sm:p-8 text-white max-h-[90vh] overflow-y-auto shadow-2xl relative">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
-                <div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                    Story Edition & Submission
-                  </span>
-                  <h3 className="text-xl font-black text-white mt-1">Edit & Update News Story</h3>
-                  <p className="text-xs text-slate-400">
-                    Originally filed by: <strong className="text-amber-300">{editingNewsStory.authorName}</strong> ({editingNewsStory.author?.assignedDesignation || 'Contributor'})
-                  </p>
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-6xl xl:max-w-7xl max-h-[94vh] sm:max-h-[96vh] h-full flex flex-col text-white shadow-2xl overflow-hidden">
+              {/* Sticky Header */}
+              <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur shrink-0 z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                    <Edit3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-black text-white">Edit &amp; Update News Story</h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase hidden sm:inline-block">
+                        Story Edition &amp; Submission
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Originally filed by: <strong className="text-amber-300">{editingNewsStory.authorName}</strong> ({editingNewsStory.author?.assignedDesignation || 'Contributor'})
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setEditingNewsStory(null)}
-                  className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800"
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Close Modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleEditNewsSubmit} className="space-y-4">
-                {/* Title */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Story Headline / Title *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editNewsForm.title}
-                    onChange={(e) => setEditNewsForm({ ...editNewsForm, title: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium focus:outline-none focus:border-amber-500 text-sm"
-                  />
-                </div>
-
-                {/* Subtitle */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Subtitle / Summary (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editNewsForm.subtitle}
-                    onChange={(e) => setEditNewsForm({ ...editNewsForm, subtitle: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Categories Pill Selector */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                      Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+              {/* Scrollable Form Body */}
+              <form onSubmit={handleEditNewsSubmit} className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 text-xs flex flex-col">
+                <div className="space-y-4">
+                  {/* Title & Subtitle */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                      Story Headline / Title *
                     </label>
-                    <span className="text-[11px] text-slate-400">
-                      {(editNewsForm.categories || []).length} selected
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
-                    {categories.map((c) => {
-                      const isSelected = (editNewsForm.categories || []).includes(c._id) || (editNewsForm.categories?.length === 0 && editNewsForm.category === c._id);
-                      return (
-                        <button
-                          key={c._id}
-                          type="button"
-                          onClick={() => {
-                            const current = (editNewsForm.categories && editNewsForm.categories.length > 0)
-                              ? editNewsForm.categories
-                              : (editNewsForm.category ? [editNewsForm.category] : []);
-                            let updated;
-                            if (current.includes(c._id)) {
-                              updated = current.filter((id) => id !== c._id);
-                            } else {
-                              updated = [...current, c._id];
-                            }
-                            setEditNewsForm({
-                              ...editNewsForm,
-                              categories: updated,
-                              category: updated[0] || '',
-                            });
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
-                            ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400 font-bold'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
-                            }`}
-                        >
-                          <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
-                          <span>{c.name}</span>
-                          {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Reporting Location */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Reporting Location
-                  </label>
-                  <input
-                    type="text"
-                    value={editNewsForm.location}
-                    onChange={(e) => setEditNewsForm({ ...editNewsForm, location: e.target.value })}
-                    placeholder="e.g. Kishanganj, Purnea, Patna"
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Thumbnail Image (Direct Upload + URL input + Preview) */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Featured Thumbnail Image
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                     <input
                       type="text"
-                      value={editNewsForm.thumbnail}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, thumbnail: e.target.value })}
-                      placeholder="Image URL or upload image file directly..."
-                      className="w-full sm:flex-1 px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                    />
-                    <label className="cursor-pointer px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{editNewsUploading ? 'Uploading...' : 'Upload Image'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleEditNewsImageUpload}
-                        disabled={editNewsUploading}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  {editNewsForm.thumbnail && (
-                    <div className="mt-2 w-32 h-20 rounded-lg overflow-hidden border border-slate-700 bg-black">
-                      <img src={getMediaUrl(editNewsForm.thumbnail)} alt="Preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Video Coverage (Upload or URL) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5 text-amber-500" />
-                      Video Report (Upload File or URL)
-                    </label>
-                    {editNewsForm.videoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setEditNewsForm({ ...editNewsForm, videoUrl: '' })}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-normal"
-                      >
-                        ✕ Remove Video
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <label className={`cursor-pointer px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${editVideoUploading
-                        ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
-                        : 'bg-amber-950/80 hover:bg-amber-900 border-amber-800/80 text-amber-200'
-                        }`}>
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{editVideoUploading ? 'Uploading Video...' : 'Upload Video File'}</span>
-                        <input
-                          type="file"
-                          accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
-                          disabled={editVideoUploading}
-                          onChange={(e) => handleVideoUpload(e, true)}
-                          className="hidden"
-                        />
-                      </label>
-                      <input
-                        type="text"
-                        value={editNewsForm.videoUrl}
-                        onChange={(e) => setEditNewsForm({ ...editNewsForm, videoUrl: e.target.value })}
-                        placeholder="or paste YouTube / MP4 URL"
-                        className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500 font-mono text-[11px]"
-                      />
-                    </div>
-
-                    {editNewsForm.videoUrl && (
-                      <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
-                        <span className="truncate max-w-[320px]">✓ Video Attached: {editNewsForm.videoUrl}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content (with Markdown Toolbar & Live Preview Toggle) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                      Detailed Story Content (Markdown Supported) *
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditNewsPreview(!editNewsPreview)}
-                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition-colors"
-                      >
-                        {editNewsPreview ? 'Edit Raw Text' : 'Live Markdown Preview'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {editNewsPreview ? (
-                    <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl min-h-[220px] max-h-[400px] overflow-y-auto">
-                      <MarkdownView content={editNewsForm.content} isDark={true} />
-                    </div>
-                  ) : (
-                    <textarea
-                      rows={9}
                       required
-                      value={editNewsForm.content}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, content: e.target.value })}
-                      className="w-full px-3.5 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs leading-relaxed focus:outline-none focus:border-amber-500 font-sans"
+                      value={editNewsForm.title}
+                      onChange={(e) => setEditNewsForm({ ...editNewsForm, title: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-medium focus:outline-none focus:border-amber-500 text-sm"
                     />
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                      Subtitle / Summary (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editNewsForm.subtitle}
+                      onChange={(e) => setEditNewsForm({ ...editNewsForm, subtitle: e.target.value })}
+                      placeholder="Brief 1-2 sentence lead summarizing the story..."
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* 2-Column Responsive Grid: Metadata & Media */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Left: Categories, Dateline, Tags */}
+                    <div className="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                            Categories * <span className="text-[11px] font-normal text-amber-300">(Select 1 or more / 1 से अधिक श्रेणियां चुनें)</span>
+                          </label>
+                          <span className="text-[11px] text-slate-400 font-bold">
+                            {(editNewsForm.categories || []).length} selected
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800/90 border border-slate-700 rounded-lg max-h-36 overflow-y-auto">
+                          {categories.map((c) => {
+                            const isSelected = (editNewsForm.categories || []).includes(c._id) || (editNewsForm.categories?.length === 0 && editNewsForm.category === c._id);
+                            return (
+                              <button
+                                key={c._id}
+                                type="button"
+                                onClick={() => {
+                                  const current = (editNewsForm.categories && editNewsForm.categories.length > 0)
+                                    ? editNewsForm.categories
+                                    : (editNewsForm.category ? [editNewsForm.category] : []);
+                                  let updated;
+                                  if (current.includes(c._id)) {
+                                    updated = current.filter((id) => id !== c._id);
+                                  } else {
+                                    updated = [...current, c._id];
+                                  }
+                                  setEditNewsForm({
+                                    ...editNewsForm,
+                                    categories: updated,
+                                    category: updated[0] || '',
+                                  });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${isSelected
+                                  ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400 font-bold'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700'
+                                  }`}
+                              >
+                                <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                                <span>{c.name}</span>
+                                {c.nameHindi && <span className="text-[10px] opacity-75">({c.nameHindi})</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                          Reporting Location / Dateline
+                        </label>
+                        <input
+                          type="text"
+                          value={editNewsForm.location}
+                          onChange={(e) => setEditNewsForm({ ...editNewsForm, location: e.target.value })}
+                          placeholder="e.g. Kishanganj, Purnea, Patna"
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                          Tags / Keywords (comma separated)
+                        </label>
+                        <input
+                          type="text"
+                          value={editNewsForm.tags}
+                          onChange={(e) => setEditNewsForm({ ...editNewsForm, tags: e.target.value })}
+                          placeholder="Kishanganj, Politics, Bihar, Development"
+                          className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right: Media Section */}
+                    <div className="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                      {/* Featured Thumbnail */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
+                          Featured Thumbnail Image
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
+                          <input
+                            type="text"
+                            value={editNewsForm.thumbnail}
+                            onChange={(e) => setEditNewsForm({ ...editNewsForm, thumbnail: e.target.value })}
+                            placeholder="Image URL or upload image file directly..."
+                            className="w-full sm:flex-1 px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                          />
+                          <label className="cursor-pointer px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0 transition-colors">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{editNewsUploading ? 'Uploading...' : 'Upload Image'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleEditNewsImageUpload}
+                              disabled={editNewsUploading}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        {editNewsForm.thumbnail && (
+                          <div className="mt-2 w-36 h-20 rounded-lg overflow-hidden border border-slate-700 bg-black">
+                            <img src={getMediaUrl(editNewsForm.thumbnail)} alt="Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Video Report */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Video className="w-3.5 h-3.5 text-amber-500" />
+                            Video Report (Upload File or URL)
+                          </label>
+                          {editNewsForm.videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setEditNewsForm({ ...editNewsForm, videoUrl: '' })}
+                              className="text-[10px] text-red-400 hover:text-red-300 font-normal"
+                            >
+                              ✕ Remove Video
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className={`cursor-pointer px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all ${editVideoUploading
+                              ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                              : 'bg-amber-950/80 hover:bg-amber-900 border-amber-800/80 text-amber-200'
+                              }`}>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>{editVideoUploading ? 'Uploading Video...' : 'Upload Video File'}</span>
+                              <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/mov,video/mkv,video/*"
+                                disabled={editVideoUploading}
+                                onChange={(e) => handleVideoUpload(e, true)}
+                                className="hidden"
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              value={editNewsForm.videoUrl}
+                              onChange={(e) => setEditNewsForm({ ...editNewsForm, videoUrl: e.target.value })}
+                              placeholder="or paste YouTube / MP4 URL"
+                              className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                            />
+                          </div>
+
+                          {editNewsForm.videoUrl && (
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-emerald-400 flex items-center justify-between">
+                              <span className="truncate max-w-[320px]">✓ Video Attached: {editNewsForm.videoUrl}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content (with Markdown Toolbar & Live Preview Toggle) */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-800">
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                        Detailed Story Content (Markdown Supported) *
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('h2', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H2 Section Heading"
+                        >
+                          H2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('h3', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert H3 Subheading"
+                        >
+                          H3
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('bold', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bold Text"
+                        >
+                          **B**
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('italic', true)}
+                          className="px-2 py-0.5 text-[10px] italic bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Italic Text"
+                        >
+                          *I*
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('quote', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Blockquote"
+                        >
+                          &gt; Quote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('bullet', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Bullet List"
+                        >
+                          • List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertNewsMarkdownTag('link', true)}
+                          className="px-2 py-0.5 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                          title="Insert Link"
+                        >
+                          Link
+                        </button>
+
+                        <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block"></div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditNewsPreview(!editNewsPreview)}
+                          className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 transition-colors flex items-center gap-1.5"
+                        >
+                          {editNewsPreview ? (
+                            <>
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Raw Text</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Live Preview</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {editNewsPreview ? (
+                      <div className="p-4 sm:p-6 bg-slate-950 border border-slate-800 rounded-xl min-h-[280px] max-h-[460px] overflow-y-auto leading-relaxed">
+                        <MarkdownView content={editNewsForm.content} isDark={true} />
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={12}
+                        required
+                        value={editNewsForm.content}
+                        onChange={(e) => setEditNewsForm({ ...editNewsForm, content: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs leading-relaxed focus:outline-none focus:border-amber-500 font-sans"
+                      />
+                    )}
+                  </div>
+
+                  {/* Editorial Showcases */}
+                  <div className="flex flex-wrap gap-4 p-3 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editNewsForm.isBreaking}
+                        onChange={(e) => setEditNewsForm({ ...editNewsForm, isBreaking: e.target.checked })}
+                        className="rounded text-red-600"
+                      />
+                      <span className="font-bold text-red-400 flex items-center gap-1 text-xs">
+                        <Flame className="w-3.5 h-3.5" /> Breaking News Banner / Ticker
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editNewsForm.isFeatured}
+                        onChange={(e) => setEditNewsForm({ ...editNewsForm, isFeatured: e.target.checked })}
+                        className="rounded text-yellow-500"
+                      />
+                      <span className="font-bold text-yellow-400 flex items-center gap-1 text-xs">
+                        <Sparkles className="w-3.5 h-3.5" /> Top Highlight News Title
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editNewsForm.isTrending}
+                        onChange={(e) => setEditNewsForm({ ...editNewsForm, isTrending: e.target.checked })}
+                        className="rounded text-rose-500"
+                      />
+                      <span className="font-bold text-rose-400 flex items-center gap-1 text-xs">
+                        <TrendingUp className="w-3.5 h-3.5" /> Top Trending Stories
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Separate Watermark Options for Photo & Video */}
+                  <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Watermark Controls (वॉटरमार्क सेटिंग्स)
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={editNewsForm.watermarkPhoto}
+                          onChange={(e) => setEditNewsForm({ ...editNewsForm, watermarkPhoto: e.target.checked })}
+                          className="rounded text-red-600"
+                        />
+                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-red-400" /> Photo Watermark
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={editNewsForm.watermarkVideo}
+                          onChange={(e) => setEditNewsForm({ ...editNewsForm, watermarkVideo: e.target.checked })}
+                          className="rounded text-amber-500"
+                        />
+                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                          <Video className="w-3.5 h-3.5 text-amber-400" /> Video Watermark
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Tags */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">
-                    Tags / Keywords (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={editNewsForm.tags}
-                    onChange={(e) => setEditNewsForm({ ...editNewsForm, tags: e.target.value })}
-                    placeholder="Kishanganj, Politics, Bihar, Development"
-                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Editorial Showcases */}
-                <div className="flex flex-wrap gap-4 p-3 bg-slate-950/60 rounded-xl border border-slate-800">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editNewsForm.isBreaking}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, isBreaking: e.target.checked })}
-                      className="rounded text-red-600"
-                    />
-                    <span className="font-bold text-red-400 flex items-center gap-1 text-xs">
-                      <Flame className="w-3.5 h-3.5" /> Breaking News Banner / Ticker
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editNewsForm.isFeatured}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, isFeatured: e.target.checked })}
-                      className="rounded text-yellow-500"
-                    />
-                    <span className="font-bold text-yellow-400 flex items-center gap-1 text-xs">
-                      <Sparkles className="w-3.5 h-3.5" /> Top Highlight News Title
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editNewsForm.isTrending}
-                      onChange={(e) => setEditNewsForm({ ...editNewsForm, isTrending: e.target.checked })}
-                      className="rounded text-rose-500"
-                    />
-                    <span className="font-bold text-rose-400 flex items-center gap-1 text-xs">
-                      <TrendingUp className="w-3.5 h-3.5" /> Top Trending Stories
-                    </span>
-                  </label>
-                </div>
-
-                {/* Actions Footer */}
-                <div className="pt-4 border-t border-slate-800 flex justify-end gap-2.5">
+                {/* Sticky Footer */}
+                <div className="pt-4 border-t border-slate-800 flex justify-end gap-2.5 mt-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setEditingNewsStory(null)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={editNewsSubmitting}
-                    className="px-6 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-lg shadow-lg flex items-center gap-1.5"
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center gap-1.5"
                   >
                     <Check className="w-4 h-4" />
                     <span>{editNewsSubmitting ? 'Saving Changes...' : 'Save & Submit Updates'}</span>

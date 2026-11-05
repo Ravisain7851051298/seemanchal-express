@@ -89,6 +89,14 @@ const newsSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  watermarkPhoto: {
+    type: Boolean,
+    default: false,
+  },
+  watermarkVideo: {
+    type: Boolean,
+    default: false,
+  },
   policyAccepted: {
     type: Boolean,
     default: true,

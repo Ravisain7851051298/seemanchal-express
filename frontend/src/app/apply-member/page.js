@@ -12,6 +12,8 @@ import {
   Camera,
   Eye,
   EyeOff,
+  Scale,
+  ExternalLink,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -421,23 +423,62 @@ export default function ApplyMemberPage() {
               />
             </div>
 
-            {/* Declaration & Submit */}
+            {/* Mandatory Membership Policy Acceptance & Declaration */}
             <div className="pt-4 border-t border-slate-200">
-              <div className="bg-slate-50 p-4 rounded-xl text-[11px] text-slate-600 leading-relaxed mb-4 border border-slate-200">
-                <strong>Declaration &amp; Terms:</strong> I hereby declare that all the information provided above is true and correct to the best of my knowledge. I pledge to adhere to the{' '}
-                <a href="/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-red-600 hover:text-red-700 underline font-bold">
-                  Privacy Policy (गोपनीयता नीति)
-                </a>
-                ,{' '}
-                <a href="/legal/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="text-red-600 hover:text-red-700 underline font-bold">
-                  Terms &amp; Conditions (नियम एवं शर्तें)
-                </a>
-                , and organizational principles of Seemanchal Express.
+              <div className="bg-red-50/80 border border-red-200 p-4 rounded-xl space-y-3 mb-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="applyMemberPolicyAcceptance"
+                    required
+                    checked={formData.policyAccepted !== false}
+                    onChange={(e) => setFormData({ ...formData, policyAccepted: e.target.checked })}
+                    className="mt-1 rounded text-red-600 focus:ring-red-500 cursor-pointer w-4 h-4"
+                  />
+                  <div className="flex-1 text-xs text-slate-800">
+                    <label htmlFor="applyMemberPolicyAcceptance" className="font-bold flex items-center gap-1.5 cursor-pointer text-slate-900">
+                      <Scale className="w-4 h-4 text-red-600" />
+                      <span>संगठनात्मक नियमावली एवं विधिक नीति स्वीकृति (Mandatory Acceptance) *</span>
+                    </label>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      मैं पुष्टि करता हूँ कि मैंने संगठन की नीतियों को पढ़ लिया है। मैं सदस्यता आवेदन के साथ इन अनिवार्य नीतियों को डिजिटल रूप से स्वीकार करता हूँ:
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Link
+                        href="/legal/membership-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-red-50 border border-red-300 rounded text-[11px] font-bold text-red-700 inline-flex items-center gap-1"
+                      >
+                        <span>Membership Policy (सदस्यता नीति)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                      <Link
+                        href="/legal/member-code-of-conduct"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-red-50 border border-red-300 rounded text-[11px] font-bold text-red-700 inline-flex items-center gap-1"
+                      >
+                        <span>Code of Conduct (आचार संहिता)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                      <Link
+                        href="/legal/privacy-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-red-50 border border-red-300 rounded text-[11px] font-bold text-red-700 inline-flex items-center gap-1"
+                      >
+                        <span>Privacy Policy (गोपनीयता नीति)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || formData.policyAccepted === false}
                 className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <FileCheck className="w-4 h-4" />

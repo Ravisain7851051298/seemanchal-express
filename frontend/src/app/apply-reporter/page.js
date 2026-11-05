@@ -11,6 +11,8 @@ import {
   Camera,
   Eye,
   EyeOff,
+  Scale,
+  ExternalLink,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import api from '../../lib/api';
@@ -135,7 +137,7 @@ export default function ApplyReporterPage() {
             Reporter Application Received!
           </h2>
           <p className="text-xs text-slate-600 leading-relaxed mb-6">
-            The editorial board of Seemanchal Express is reviewing your credentials and desired coverage area. 
+            The editorial board of Seemanchal Express is reviewing your credentials and desired coverage area.
             Once approved, you will be issued an official <strong>Digital Press ID Card</strong>, <strong>Appointment Letter</strong>, and <strong>News Submission Portal</strong> access.
           </p>
 
@@ -368,7 +370,7 @@ export default function ApplyReporterPage() {
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-l-4 border-amber-500 pl-2">
                 2. Reporting Jurisdiction & Beats
               </h3>
-              
+
               <div className="mb-4">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Desired Reporting Jurisdiction (District / Sub-division / Block) *
@@ -394,11 +396,10 @@ export default function ApplyReporterPage() {
                     return (
                       <label
                         key={idx}
-                        className={`p-2.5 rounded-lg border flex items-center gap-2 cursor-pointer transition-all ${
-                          checked
+                        className={`p-2.5 rounded-lg border flex items-center gap-2 cursor-pointer transition-all ${checked
                             ? 'bg-amber-50 border-amber-400 text-amber-950 font-semibold'
                             : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -414,23 +415,62 @@ export default function ApplyReporterPage() {
               </div>
             </div>
 
-            {/* Declaration & Privacy Policy Agreement */}
+            {/* Mandatory Legal Policy Acceptance & Declaration */}
             <div className="pt-4 border-t border-slate-200">
-              <div className="bg-slate-50 p-4 rounded-xl text-[11px] text-slate-600 leading-relaxed mb-4 border border-slate-200">
-                <strong>Declaration &amp; Journalistic Ethics:</strong> By submitting this reporter application, I confirm that all submitted details are authentic. I agree to abide by the{' '}
-                <a href="/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-800 underline font-bold">
-                  Privacy Policy (गोपनीयता नीति)
-                </a>
-                ,{' '}
-                <a href="/legal/editorial-policy" target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-800 underline font-bold">
-                  Editorial Guidelines (संपादकीय नीति)
-                </a>
-                , and journalist code of ethics of Seemanchal Express.
+              <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-xl space-y-3 mb-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="applyPolicyAcceptance"
+                    required
+                    checked={formData.policyAccepted !== false}
+                    onChange={(e) => setFormData({ ...formData, policyAccepted: e.target.checked })}
+                    className="mt-1 rounded text-amber-600 focus:ring-amber-500 cursor-pointer w-4 h-4"
+                  />
+                  <div className="flex-1 text-xs text-slate-800">
+                    <label htmlFor="applyPolicyAcceptance" className="font-bold flex items-center gap-1.5 cursor-pointer text-slate-900">
+                      <Scale className="w-4 h-4 text-amber-600" />
+                      <span>पत्रकारिता आचार संहिता एवं विधिक नीति स्वीकृति (Mandatory Legal Acceptance) *</span>
+                    </label>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      मैं प्रमाणित करता हूँ कि मैंने सीमांचल एक्सप्रेस की नीतियों को पढ़ लिया है। मैं आवेदन के साथ इन अनिवार्य नीतियों को डिजिटल रूप से स्वीकार करता हूँ:
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Link
+                        href="/legal/editorial-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[11px] font-bold text-amber-800 inline-flex items-center gap-1"
+                      >
+                        <span>Editorial Policy (संपादकीय नीति)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                      <Link
+                        href="/legal/reporter-agreement"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[11px] font-bold text-amber-800 inline-flex items-center gap-1"
+                      >
+                        <span>Reporter Agreement (अनुबंध)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                      <Link
+                        href="/legal/privacy-policy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[11px] font-bold text-amber-800 inline-flex items-center gap-1"
+                      >
+                        <span>Privacy Policy (गोपनीयता नीति)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || formData.policyAccepted === false}
                 className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Newspaper className="w-4 h-4" />

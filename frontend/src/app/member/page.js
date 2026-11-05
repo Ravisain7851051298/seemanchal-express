@@ -488,6 +488,21 @@ export default function MemberDashboard() {
           onAllAccepted={() => {}}
         />
 
+        {/* Member Application Rejection Alert */}
+        {isRejected && (
+          <div className="mb-6 p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-red-200 space-y-2 shadow-2xl">
+            <div className="flex items-center gap-2 text-base font-black text-white">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              Membership Application Rejected / Access Denied
+            </div>
+            <p className="text-xs leading-relaxed text-red-200">
+              Your membership application was reviewed and not approved by the central administration. Reason:{' '}
+              <strong className="text-white">{user?.rejectionReason || 'Application criteria not met'}</strong>.
+              Access to verified digital ID cards, appointment letters, and committee functions has been denied.
+            </p>
+          </div>
+        )}
+
         {/* Member Suspension Alert */}
         {(user?.membershipStatus === 'suspended' || user?.status === 'suspended') && (
           <div className="mb-6 p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-red-200 space-y-2 shadow-2xl">
@@ -732,6 +747,127 @@ export default function MemberDashboard() {
               </div>
             )}
 
+            {/* Mandatory Legal & Governance Compliance Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Legal Documents & Policy Compliance (विधिक नीतियां एवं स्वीकृति)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      IT Act 2000 & organizational compliance tracking for active membership
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {legalStatus.pendingCount === 0 ? (
+                    <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-emerald-950/80 border border-emerald-600 text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> All Accepted
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-rose-950/80 border border-rose-600 text-rose-400 flex items-center gap-1 animate-pulse">
+                      <AlertCircle className="w-3.5 h-3.5" /> {legalStatus.pendingCount} Action Required
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('compliance')}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline ml-2"
+                  >
+                    View All Policies →
+                  </button>
+                </div>
+              </div>
+
+              {/* Document Status Breakdown */}
+              <div className="space-y-3">
+                {/* Pending Documents */}
+                {legalStatus.pendingDocuments && legalStatus.pendingDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-rose-400 block uppercase tracking-wider">
+                      Pending Acceptance ({legalStatus.pendingDocuments.length})
+                    </span>
+                    {legalStatus.pendingDocuments.map((doc) => (
+                      <div
+                        key={doc._id}
+                        className="p-3 rounded-xl bg-slate-950/80 border border-rose-900/50 flex flex-wrap items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span>{doc.titleHindi || doc.title}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {doc.title} • Version {doc.version}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`/legal/${doc.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-slate-300 hover:text-white px-2.5 py-1 rounded bg-slate-800 border border-slate-700 flex items-center gap-1"
+                          >
+                            Read Policy <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReviewPolicy(doc)}
+                            className="text-[11px] font-bold text-slate-950 px-3 py-1 rounded bg-rose-500 hover:bg-rose-400 shadow-sm"
+                          >
+                            Review & Accept
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Accepted Documents */}
+                {legalStatus.acceptedDocuments && legalStatus.acceptedDocuments.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[11px] font-bold text-emerald-400 block uppercase tracking-wider">
+                      Accepted Policies ({legalStatus.acceptedDocuments.length})
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {legalStatus.acceptedDocuments.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-lg bg-slate-950/60 border border-emerald-900/30 flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <div className="truncate">
+                              <span className="text-xs font-semibold text-slate-200 block truncate">
+                                {item.documentTitleHindi || item.documentTitle}
+                              </span>
+                              <span className="text-[10px] text-slate-500 block">
+                                Accepted {new Date(item.acceptedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <a
+                            href={`/legal/${item.documentSlug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-amber-400 hover:text-amber-300 underline shrink-0 flex items-center gap-0.5"
+                          >
+                            View <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Quick Actions to View ID and Letter */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
@@ -777,51 +913,113 @@ export default function MemberDashboard() {
 
         {/* TAB 2: DIGITAL ID CARD */}
         {activeTab === 'id-card' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
-            <div className="text-center mb-6 max-w-md">
-              <h3 className="text-lg font-black text-white">Official Executive ID Card</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Authorized identity credential for Seemanchal Express leadership. Scan QR to verify live online.
+          isRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">ID Card Access Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Your membership application was not approved ({user?.rejectionReason || 'Application rejected'}). Official digital membership credentials are reserved exclusively for approved members.
               </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Member Overview
+                </button>
+              </div>
             </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
+              <div className="text-center mb-6 max-w-md">
+                <h3 className="text-lg font-black text-white">Official Executive ID Card</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Authorized identity credential for Seemanchal Express leadership. Scan QR to verify live online.
+                </p>
+              </div>
 
-            {isApproved ? (
-              <div className="w-full flex justify-center">
-                <DigitalIdCard cardData={idCardData || user} />
-              </div>
-            ) : (
-              <div className="py-12 text-center text-xs text-slate-500">
-                Digital ID Card will be generated as soon as your application is approved by the admin.
-              </div>
-            )}
-          </div>
+              {isApproved ? (
+                <div className="w-full flex justify-center">
+                  <DigitalIdCard cardData={idCardData || user} />
+                </div>
+              ) : (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  Digital ID Card will be generated as soon as your application is approved by the admin.
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* TAB 3: APPOINTMENT LETTER */}
         {activeTab === 'appointment-letter' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
-            <div className="text-center mb-6 max-w-md">
-              <h3 className="text-lg font-black text-white">Official Appointment Letter</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Executive appointment decree signed by the National Leadership Committee.
+          isRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Appointment Letter Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Your membership application was not approved. Executive appointment decrees are not issued to unapproved or rejected applicants.
               </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Member Overview
+                </button>
+              </div>
             </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col items-center">
+              <div className="text-center mb-6 max-w-md">
+                <h3 className="text-lg font-black text-white">Official Appointment Letter</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Executive appointment decree signed by the National Leadership Committee.
+                </p>
+              </div>
 
-            {isApproved ? (
-              <div className="w-full flex justify-center">
-                <AppointmentLetter appointmentData={appointmentData || user} />
-              </div>
-            ) : (
-              <div className="py-12 text-center text-xs text-slate-500">
-                Official Appointment Letter will be issued upon approval.
-              </div>
-            )}
-          </div>
+              {isApproved ? (
+                <div className="w-full flex justify-center">
+                  <AppointmentLetter appointmentData={appointmentData || user} />
+                </div>
+              ) : (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  Official Appointment Letter will be issued upon approval.
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* TAB 4: COMMITTEE STRUCTURE */}
         {activeTab === 'committee' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm max-w-4xl mx-auto space-y-6">
+          isRejected ? (
+            <div className="bg-slate-900 border border-red-800/80 rounded-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-4 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-700 text-red-400 mx-auto flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white">Committee Access Denied</h3>
+              <p className="text-xs text-red-300 max-w-md mx-auto leading-relaxed">
+                Committee tier placements and operational deliberations are restricted to verified organization members.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('overview')}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                >
+                  Return to Member Overview
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm max-w-4xl mx-auto space-y-6">
             <div>
               <h3 className="text-lg font-black text-white">Organizational Hierarchy & Tier System</h3>
               <p className="text-xs text-slate-400 mt-1">
@@ -884,6 +1082,7 @@ export default function MemberDashboard() {
               })}
             </div>
           </div>
+          )
         )}
 
         {/* TAB: LEGAL & MEMBERSHIP POLICIES COMPLIANCE */}
